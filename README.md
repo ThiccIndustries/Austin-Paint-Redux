@@ -8,9 +8,9 @@ Now with new features such as:
 * Better color palette editing.
 
 ### Requirements:
-* Java 1.8 (32 or 64 bit)
+* Java 1.8_251 x86 or x64
 * Functioning Computer
-* A Graphics card made this millennium.
+* A Graphics card supporting OpenGL 1.1 (no that is not a typo)
 * No soul
 
 ### Usage:
