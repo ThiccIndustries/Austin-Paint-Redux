@@ -380,7 +380,7 @@ public class FileManager {
     }
 
     //Flattens the Austin Paint Redux layered image into an array that can be read by APE / AP2
-    private static int[][] flattenAPImage(int[][][] layeredArray){
+    public static int[][] flattenAPImage(int[][][] layeredArray){
         int[][] flattenedArray = new int[32][32];
         for(int i = 0; i < 7; i++){
             for(int y = 0; y < 32; y++){

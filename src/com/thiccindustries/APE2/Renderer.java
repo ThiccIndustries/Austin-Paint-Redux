@@ -3,10 +3,12 @@ import com.thiccindustries.APE2.io.*;
 import org.apache.commons.lang.ArrayUtils;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.glfw.GLFW;
+import org.lwjgl.glfw.GLFWImage;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL;
 import java.awt.Color;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.DoubleBuffer;
 import java.text.DecimalFormat;
 
@@ -31,6 +33,8 @@ public class Renderer {
 
     private static Texture font;
 
+    private static double lastTime = 0;
+    private static int FPS = 0;
     private static boolean CURSOR_BLINK;
     private static int cycle = 0;
 
@@ -61,7 +65,7 @@ public class Renderer {
         GL11.glOrtho(0, windowX, windowY, 0, 1, -1);
 
         //Vsync on
-        GLFW.glfwSwapInterval(1);
+        GLFW.glfwSwapInterval(0);
 
         //Set callbacks
         GLFW.glfwSetKeyCallback(window, new Keyboard());
@@ -78,7 +82,7 @@ public class Renderer {
             e.printStackTrace();
         }
         uiCursor = TextureLoader.loadTextureAP("/res/cursor.ap2", fallbackTexture);
-        cursorTextures = new Texture[13];
+        cursorTextures = new Texture[14];
         cursorTextures[0]   = TextureLoader.loadTextureAP("/res/tools/pencil.ap2", fallbackTexture);
         cursorTextures[1]   = TextureLoader.loadTextureAP("/res/tools/erase.ap2", fallbackTexture);
         cursorTextures[2]   = TextureLoader.loadTextureAP("/res/tools/fill.ap2", fallbackTexture);
@@ -87,11 +91,12 @@ public class Renderer {
         cursorTextures[5]   = TextureLoader.loadTextureAP("/res/tools/move_pixels.ap2", fallbackTexture);
         cursorTextures[6]   = TextureLoader.loadTextureAP("/res/tools/mirror_horiz.ap2", fallbackTexture);
         cursorTextures[7]   = TextureLoader.loadTextureAP("/res/tools/mirror_vert.ap2", fallbackTexture);
-        cursorTextures[8]   = TextureLoader.loadTextureAP("/res/tools/palette.ap2", fallbackTexture);
-        cursorTextures[9]   = TextureLoader.loadTextureAP("/res/tools/save.ap2", fallbackTexture);
-        cursorTextures[10]  = TextureLoader.loadTextureAP("/res/tools/export.ap2", fallbackTexture);
-        cursorTextures[11]  = TextureLoader.loadTextureAP("/res/tools/open.ap2", fallbackTexture);
-        cursorTextures[12]  = TextureLoader.loadTextureAP("/res/tools/cursor_text.ap2", fallbackTexture);
+        cursorTextures[8]   = TextureLoader.loadTextureAP("/res/tools/flatten.ap2", fallbackTexture);
+        cursorTextures[9]   = TextureLoader.loadTextureAP("/res/tools/palette.ap2", fallbackTexture);
+        cursorTextures[10]   = TextureLoader.loadTextureAP("/res/tools/save.ap2", fallbackTexture);
+        cursorTextures[11]  = TextureLoader.loadTextureAP("/res/tools/export.ap2", fallbackTexture);
+        cursorTextures[12]  = TextureLoader.loadTextureAP("/res/tools/open.ap2", fallbackTexture);
+        cursorTextures[13]  = TextureLoader.loadTextureAP("/res/tools/cursor_text.ap2", fallbackTexture);
 
         toolTexts = new String[]{
                 "Pencil Tool",
@@ -102,6 +107,7 @@ public class Renderer {
                 "Move Pixels",
                 "Mirror (Horizontal)",
                 "Mirror (Vertical)",
+                "Flatten Image",
                 "Edit Palette",
                 "Save File",
                 "Export Image",
@@ -114,6 +120,24 @@ public class Renderer {
 
         layerBackground = TextureLoader.loadTextureAP("/res/layerbg_deselected.ap2", fallbackTexture);
         layerBackground_active = TextureLoader.loadTextureAP("/res/layerbg_selected.ap2", fallbackTexture);
+
+
+        //Set window icon
+        try {
+            ByteBuffer iconBuffer = TextureLoader.loadTextureBytesAPNoFallback("/res/icon.ap2");
+            GLFWImage.Buffer icons = GLFWImage.malloc(1);
+
+            icons
+                    .position(0)
+                    .width(32)
+                    .height(32)
+                    .pixels(iconBuffer);
+
+
+            GLFW.glfwSetWindowIcon(window, icons);
+        }catch(IOException e){
+            System.err.println("Failed to set window icon");
+        }
     }
 
     public static void drawBitmapLayers(int [][][] bitmaps, Color[] bitmapColors){
@@ -160,10 +184,10 @@ public class Renderer {
                     }
                     GL11.glBegin(GL11.GL_QUADS);
                     {
-                        GL11.glVertex2i(uioffsetX + (x * 2),                     uioffsetY + (y * (2 * rawScale)));
-                        GL11.glVertex2i(uioffsetX + (x * 2) + (2 * rawScale),    uioffsetY + (y * (2 * rawScale)));
-                        GL11.glVertex2i(uioffsetX + (x * 2) + (2 * rawScale),    uioffsetY + (y * (2 * rawScale)) + (2 * rawScale));
-                        GL11.glVertex2i(uioffsetX + (x * 2),                     uioffsetY + (y * (2 * rawScale)) +(2 * rawScale));
+                        GL11.glVertex2i(uioffsetX + (x * 2 * rawScale),                     uioffsetY + (y * (2 * rawScale)));
+                        GL11.glVertex2i(uioffsetX + (x * 2 * rawScale) + (2 * rawScale),    uioffsetY + (y * (2 * rawScale)));
+                        GL11.glVertex2i(uioffsetX + (x * 2 * rawScale) + (2 * rawScale),    uioffsetY + (y * (2 * rawScale)) + (2 * rawScale));
+                        GL11.glVertex2i(uioffsetX + (x * 2 * rawScale),                     uioffsetY + (y * (2 * rawScale)) +(2 * rawScale));
                     }
                     GL11.glEnd();
                 }
@@ -370,7 +394,7 @@ public class Renderer {
         GL11.glColor3f(1,1,1);
         GL11.glEnable(GL11.GL_TEXTURE_2D);
         //If inside bitmap field
-        if((mouseXPixel > 1 && mouseXPixel < 34) && (mouseYPixel >= 0 && mouseYPixel < 32) && toolmode != 8) {
+        if((mouseXPixel > 1 && mouseXPixel < 34) && (mouseYPixel >= 0 && mouseYPixel < 32) && toolmode != 9) {
             cursorTextures[toolmode].Bind(0);
         }else{
             uiCursor.Bind(0);
@@ -449,13 +473,13 @@ public class Renderer {
             //Draw fading color bar
             GL11.glBegin(GL11.GL_QUADS);
 
-            int noRed = Clamp(Palette[selectedColor].getRed() - editingColor.getRed(), 0, 255);
-            int noGreen = Clamp(Palette[selectedColor].getGreen() - editingColor.getGreen(), 0, 255);
-            int noBlue = Clamp(Palette[selectedColor].getBlue() - editingColor.getBlue(), 0, 255);
+            int noRed       = (int)Clamp(Palette[selectedColor].getRed() - editingColor.getRed(), 0, 255);
+            int noGreen     = (int)Clamp(Palette[selectedColor].getGreen() - editingColor.getGreen(), 0, 255);
+            int noBlue      = (int)Clamp(Palette[selectedColor].getBlue() - editingColor.getBlue(), 0, 255);
 
-            int maxRed = Clamp(Palette[selectedColor].getRed() + editingColor.getRed(), 0, 255);
-            int maxGreen = Clamp(Palette[selectedColor].getGreen() + editingColor.getGreen(), 0, 255);
-            int maxBlue = Clamp(Palette[selectedColor].getBlue() + editingColor.getBlue(), 0, 255);
+            int maxRed      = (int)Clamp(Palette[selectedColor].getRed() + editingColor.getRed(), 0, 255);
+            int maxGreen    = (int)Clamp(Palette[selectedColor].getGreen() + editingColor.getGreen(), 0, 255);
+            int maxBlue     = (int)Clamp(Palette[selectedColor].getBlue() + editingColor.getBlue(), 0, 255);
 
             GL11.glColor3ub((byte)noRed, (byte)noGreen, (byte)noBlue);
             {
@@ -472,26 +496,29 @@ public class Renderer {
             float colorValue = 0.0f;
             switch(colorIndex){
                 case 0:
-                    colorValue = (Palette[selectedColor].getRed() / 255f);
+                    colorValue = (Palette[selectedColor].getRed());
                     break;
                 case 1:
-                    colorValue = (Palette[selectedColor].getGreen() / 255f);
+                    colorValue = (Palette[selectedColor].getGreen());
                     break;
                 case 2:
-                    colorValue = (Palette[selectedColor].getBlue() / 255f);
+                    colorValue = (Palette[selectedColor].getBlue());
                     break;
             }
 
             //Draw slider bar
-            float colorPosition = colorValue * (pixelScale * 21) + pixelScale;
+            float colorPosition = ((pixelScale * 21) * (colorValue / 255f)) + pixelScale;
+
+            int colorPositionHexMult = Math.round(colorPosition / 16);
+            int colorPositionClamped = colorPositionHexMult * 16;
             UIColor = new Color(64, 64, 64);
             GL11.glColor3f(UIColor.getRed() / 255f, UIColor.getGreen() / 255f, UIColor.getBlue() / 255f);
             GL11.glBegin(GL11.GL_QUADS);
             {
-                GL11.glVertex2f((2 * pixelScale) + uiOffset + colorPosition,                   uiOffset + uiOffsetY);
-                GL11.glVertex2f((2 * pixelScale) + uiOffset + colorPosition + (pixelScale),    uiOffset + uiOffsetY);
-                GL11.glVertex2f((2 * pixelScale) + uiOffset + colorPosition + (pixelScale),    uiOffset + uiOffsetY + (pixelScale * 4));
-                GL11.glVertex2f((2 * pixelScale) + uiOffset + colorPosition,                   uiOffset + uiOffsetY + (pixelScale * 4));
+                GL11.glVertex2f((2 * pixelScale) + uiOffset + colorPositionClamped,                   uiOffset + uiOffsetY);
+                GL11.glVertex2f((2 * pixelScale) + uiOffset + colorPositionClamped + (pixelScale),    uiOffset + uiOffsetY);
+                GL11.glVertex2f((2 * pixelScale) + uiOffset + colorPositionClamped + (pixelScale),    uiOffset + uiOffsetY + (pixelScale * 4));
+                GL11.glVertex2f((2 * pixelScale) + uiOffset + colorPositionClamped,                   uiOffset + uiOffsetY + (pixelScale * 4));
             }
             GL11.glEnd();
         }
@@ -536,6 +563,11 @@ public class Renderer {
             GL11.glVertex2i((2 * pixelScale) + uiOffset,                        uiOffsetY + (5 * pixelScale));
         }
         GL11.glEnd();
+    }
+
+    public static void drawFPS(int posX, int posY, int scale, boolean background, Color textColor, Color backgroundColor){
+        DecimalFormat df = new DecimalFormat("###");
+        drawText(df.format(FPS), posX, posY, scale, background, textColor, backgroundColor);
     }
 
     public static void drawText(String text, int posX, int posY, int scale, boolean background, Color textColor, Color backgroundColor){
@@ -592,8 +624,10 @@ public class Renderer {
     public static void pollWindowEvents(){GLFW.glfwPollEvents();}
     public static void completeFrame(){
         cycle++;
+        FPS = (int)(1f / (GLFW.glfwGetTime() - lastTime));
+        lastTime = GLFW.glfwGetTime();
 
-        int blinkRate = GLFW.glfwGetVideoMode(GLFW.glfwGetPrimaryMonitor()).refreshRate() / 2;
+        int blinkRate = 144;
         if(cycle % blinkRate == 0){
             CURSOR_BLINK = !CURSOR_BLINK;
         }
@@ -602,7 +636,7 @@ public class Renderer {
     }
 
 
-    public static int Clamp(int value, int min, int max){
+    public static float Clamp(float value, float min, float max){
         if (value > max)
             return max;
         if(value < min)

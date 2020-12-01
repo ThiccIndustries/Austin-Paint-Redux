@@ -4,7 +4,7 @@ import org.lwjgl.glfw.GLFW;
 
 import javax.swing.*;
 import javax.swing.filechooser.FileFilter;
-import java.awt.Color;
+import java.awt.*;
 import java.io.File;
 import java.util.LinkedList;
 
@@ -20,6 +20,9 @@ public class Application {
     private static int lastClickX, lastClickY;
 
     private static LinkedList<UndoEntity> UndoStack = new LinkedList<UndoEntity>();
+
+    private static LinkedList<UndoEntity> RedoStack = new LinkedList<UndoEntity>();
+
 
     //Text editing
     private static int hexInputLength = 0;
@@ -57,7 +60,7 @@ public class Application {
             }
         }
 
-        Renderer.initGLFWAndCreateWindow(1);
+        Renderer.initGLFWAndCreateWindow(2);
         Renderer.loadResources();
         curSelection = new Selection();
 
@@ -72,10 +75,13 @@ public class Application {
             Renderer.drawBitmapLayersSplit(layeredPixelArray, bitmapColors);
             Renderer.drawSelection(curSelection);
 
-            if(toolmode == 8 || toolmode == 12)
-                Renderer.drawColorSelection(bitmapColors, activeColor, toolmode == 12);
+            if(toolmode == 9 || toolmode == 13)
+                Renderer.drawColorSelection(bitmapColors, activeColor, toolmode == 13);
 
             Renderer.drawUI(toolmode, bitmapColors, activeColor, activeLayer, Renderer.mouseXPixel < 2);
+
+            Renderer.drawText("Fps: ",(int)(34.5 * Renderer.pixelScale), 32 * Renderer.pixelScale - Renderer.uiScale, 1, false, Color.white, null);
+            Renderer.drawFPS((int)(34.5 * Renderer.pixelScale), 33 * Renderer.pixelScale, 1, false, Color.white, null);
             Renderer.completeFrame();
         }
 
@@ -83,6 +89,7 @@ public class Application {
     }
 
     private static void Actions() {
+
         //Toolbar
         if(Renderer.mouseXPixel < 2){
             //Select new tool
@@ -136,6 +143,8 @@ public class Application {
                 //Paste
                 UndoEntity ue = new UndoEntity();
                 UndoStack.addFirst(ue);
+                RedoStack.clear();
+                
                 for (int x = curSelection.x1; x <= curSelection.x2; x++) {
                     for (int y = curSelection.y1; y < curSelection.y2; y++) {
                         ue.AddPixel(x, y, activeLayer, layeredPixelArray[x][y][activeLayer]);
@@ -184,6 +193,7 @@ public class Application {
                 //Paste
                 UndoEntity ue = new UndoEntity();
                 UndoStack.addFirst(ue);
+                RedoStack.clear();
                 for (int x = curSelection.x1; x <= curSelection.x2; x++) {
                     for (int y = curSelection.y1; y < curSelection.y2; y++) {
                         ue.AddPixel(x, y, activeLayer, layeredPixelArray[x][y][activeLayer]);
@@ -215,6 +225,7 @@ public class Application {
                     if(Mouse.GetButtonDown(GLFW.GLFW_MOUSE_BUTTON_1)){
                         UndoEntity newStroke = new UndoEntity();
                         UndoStack.addFirst(newStroke);
+                        RedoStack.clear();
                     }
                     if(Mouse.GetButton(GLFW.GLFW_MOUSE_BUTTON_1)) {
                         UndoStack.getFirst().AddPixel(Renderer.mouseXPixel - 2, Renderer.mouseYPixel, activeLayer, layeredPixelArray[Renderer.mouseXPixel - 2][Renderer.mouseYPixel][activeLayer]);
@@ -226,6 +237,7 @@ public class Application {
                     if(Mouse.GetButtonDown(GLFW.GLFW_MOUSE_BUTTON_1)){
                         UndoEntity newStroke = new UndoEntity();
                        UndoStack.addFirst(newStroke);
+                        RedoStack.clear();
                     }
                     if(Mouse.GetButton(GLFW.GLFW_MOUSE_BUTTON_1)) {
                         UndoStack.getFirst().AddPixel(Renderer.mouseXPixel - 2, Renderer.mouseYPixel, activeLayer, layeredPixelArray[Renderer.mouseXPixel - 2][Renderer.mouseYPixel][activeLayer]);
@@ -236,25 +248,37 @@ public class Application {
                 if(toolmode == 2){
                     if(Mouse.GetButtonDown(GLFW.GLFW_MOUSE_BUTTON_1)) {
 
+                        //No finished selection
                         if(curSelection.selectionStage != 3) {
                             UndoEntity newStroke = new UndoEntity();
                             UndoStack.addFirst(newStroke);
+                            RedoStack.clear();
                             for (int y = 0; y < 32; y++) {
                                 for (int x = 0; x < 32; x++) {
                                     UndoStack.getFirst().AddPixel(x, y, activeLayer, layeredPixelArray[x][y][activeLayer]);
-                                    layeredPixelArray[x][y][activeLayer] = activeColor;
                                 }
                             }
+
+                            //Start flood fill
+                            floodFill(layeredPixelArray, activeLayer, null, false, Renderer.mouseXPixel - 2, Renderer.mouseYPixel, layeredPixelArray[Renderer.mouseXPixel - 2][Renderer.mouseYPixel][activeLayer], activeColor);
+
+
                         }else{
                             UndoEntity newStroke = new UndoEntity();
                             UndoStack.addFirst(newStroke);
+                            RedoStack.clear();
 
+
+                            //Create undo object
                             for(int x = curSelection.x1; x <= curSelection.x2; x++){
                                 for(int y = curSelection.y1; y <= curSelection.y2; y++){
                                     UndoStack.getFirst().AddPixel(x, y, activeLayer, layeredPixelArray[x][y][activeLayer]);
-                                    layeredPixelArray[x][y][activeLayer] = activeColor;
                                 }
                             }
+
+                            //Start flood fill
+                            floodFill(layeredPixelArray, activeLayer, curSelection, true, Renderer.mouseXPixel - 2, Renderer.mouseYPixel, layeredPixelArray[Renderer.mouseXPixel - 2][Renderer.mouseYPixel][activeLayer], activeColor);
+
                         }
 
 
@@ -350,6 +374,7 @@ public class Application {
                         lastClickY = Renderer.mouseYPixel;
                         UndoEntity ue = new UndoEntity();
                         UndoStack.addFirst(ue);
+                        RedoStack.clear();
                     }
 
                     if(Mouse.GetButton(GLFW.GLFW_MOUSE_BUTTON_1)){
@@ -461,7 +486,230 @@ public class Application {
 
         }
 
+        if(toolmode == 8){
+            //this boy be MASSIVE
+            UndoEntity ue = new UndoEntity();
+
+            int[][] layer0 = FileManager.flattenAPImage(layeredPixelArray);
+
+            for(int i = 0; i < 7; i++){
+                for(int x = 0; x < 32; x++){
+                    for(int y = 0; y < 32; y++){
+                        ue.AddPixel(x, y, i, layeredPixelArray[x][y][i]);
+                        layeredPixelArray[x][y][i] = -1;
+                    }
+                }
+            }
+            UndoStack.addFirst(ue);
+            RedoStack.clear();
+
+            for(int x = 0; x < 32; x ++){
+                for(int y = 0; y < 32; y++){
+                    layeredPixelArray[x][y][0] = layer0[x][y];
+                }
+            }
+
+            toolmode = 0;
+        }
+
+        //Palette Changer
+        if(toolmode == 9){
+            if((Renderer.mouseXPixel >= 9 && Renderer.mouseXPixel < 16) && Renderer.mouseYPixel == 19){
+                hexInputLength = 0;
+                hexBuffer = "";
+                toolmode = 13;
+            }
+
+            if(Keyboard.GetKeyDown(GLFW.GLFW_KEY_TAB) && !Keyboard.GetKey(GLFW.GLFW_KEY_LEFT_SHIFT)){
+                activeColor++;
+                if(activeColor > 15)
+                    activeColor = 0;
+            }
+
+            if(Keyboard.GetKeyDown(GLFW.GLFW_KEY_TAB) && Keyboard.GetKey(GLFW.GLFW_KEY_LEFT_SHIFT)){
+                activeColor--;
+                if(activeColor < 0)
+                    activeColor = 15;
+            }
+
+            if(Mouse.GetButton(GLFW.GLFW_MOUSE_BUTTON_1)){
+                if (Renderer.mouseXPixel > 6 && Renderer.mouseXPixel < 29) {
+                    //Red
+                    if (Renderer.mouseYPixel > 3 && Renderer.mouseYPixel < 8) {
+                        float Red = (255f / 21f) * (Renderer.mouseXPixel - 7);
+                        int redint = (int)Renderer.Clamp(Red, 0, 255);
+
+                        System.out.println((int)Red);
+                        int Green = bitmapColors[activeColor].getGreen();
+                        int Blue = bitmapColors[activeColor].getBlue();
+
+                        bitmapColors[activeColor] = new Color(redint, Green, Blue);
+                    }
+
+                    //Green
+                    if (Renderer.mouseYPixel > 8 && Renderer.mouseYPixel < 14) {
+                        int Red = bitmapColors[activeColor].getRed();
+
+                        float Green = (255f / 21f) * (Renderer.mouseXPixel - 7);
+                        int greenint = (int)Renderer.Clamp(Green, 0, 255);
+
+                        int Blue = bitmapColors[activeColor].getBlue();
+
+                        bitmapColors[activeColor] = new Color(Red, greenint, Blue);
+                    }
+
+                    //Blue
+                    if (Renderer.mouseYPixel > 13 && Renderer.mouseYPixel < 19) {
+                        int Red = bitmapColors[activeColor].getRed();
+                        int Green = bitmapColors[activeColor].getGreen();
+
+                        float Blue = (255f / 21f) * (Renderer.mouseXPixel - 7);
+                        int blueint = (int)Renderer.Clamp(Blue, 0, 255);
+
+                        bitmapColors[activeColor] = new Color(Red, Green, blueint);
+                    }
+                }
+            }
+        }
+
+        if(toolmode == 10){
+            try {
+                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+            }
+            catch (Throwable ex) {
+            }
+
+            EventQueue.invokeLater(new Runnable(){
+                @Override
+                public void run(){
+                    JFileChooser fileChooser = new JFileChooser();
+
+                    //Prevent dumbness
+                    fileChooser.setFileFilter(new FileFilter() {
+                        @Override
+                        public boolean accept(File f) {
+                            if(f.getName().endsWith(".ap2") || f.isDirectory()){
+                                return true;
+                            }
+                            return false;
+                        }
+
+                        @Override
+                        public String getDescription() {
+                            return "Austin Paint 2 Files";
+                        }
+                    });
+
+                    fileChooser.setCurrentDirectory(new File(System.getProperty("user.home")));
+                    fileChooser.setSelectedFile(new File("untitled.ap2"));
+                    int result = fileChooser.showSaveDialog(null);
+
+                    try {
+                        String path = fileChooser.getSelectedFile().getPath();
+                        if (!path.endsWith(".ap2")) {
+                            path += ".ap2";
+                        }
+
+                        if (result == JFileChooser.APPROVE_OPTION) {
+                            FileManager.saveFileFromImage(path, layeredPixelArray, bitmapColors);
+                        }
+                    }catch(Exception e){}
+                }
+            });
+            toolmode = 0;
+        }
+
+        if(toolmode == 11){
+            try {
+                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+            }
+            catch (Throwable ex) {
+            }
+
+            EventQueue.invokeLater(new Runnable() {
+                @Override
+                public void run() {
+                    JFileChooser fileChooser = new JFileChooser();
+
+                    //Prevent dumbness
+                    fileChooser.setFileFilter(new FileFilter() {
+                        @Override
+                        public boolean accept(File f) {
+                            if(f.getName().endsWith(".bmp") || f.isDirectory()){
+                                return true;
+                            }
+                            return false;
+                        }
+
+                        @Override
+                        public String getDescription() {
+                            return "Bitmap Image Files";
+                        }
+                    });
+                    fileChooser.setCurrentDirectory(new File(System.getProperty("user.home")));
+                    fileChooser.setSelectedFile(new File("untitled.bmp"));
+                    int result = fileChooser.showSaveDialog(null);
+
+                    try {
+                        String path = fileChooser.getSelectedFile().getPath();
+                        if (!path.endsWith(".bmp")) {
+                            path += ".bmp";
+                        }
+                        if (result == JFileChooser.APPROVE_OPTION) {
+                            FileManager.saveBMPFromImage(path, layeredPixelArray, bitmapColors);
+                        }
+                    }catch(NullPointerException e){}
+
+                }
+            });
+
+            toolmode = 0;
+        }
+
         if(toolmode == 12){
+            try {
+                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+            }
+            catch (Throwable ex) {
+            }
+
+            EventQueue.invokeLater(new Runnable() {
+                @Override
+                public void run() {
+                    JFileChooser fileChooser = new JFileChooser();
+
+                    //Prevent dumbness
+                    fileChooser.setFileFilter(new FileFilter() {
+                        @Override
+                        public boolean accept(File f) {
+                            if(f.getName().endsWith(".ap2") || f.isDirectory()){
+                                return true;
+                            }
+                            return false;
+                        }
+
+                        @Override
+                        public String getDescription() {
+                            return "Austin Paint 2 Files";
+                        }
+                    });
+
+                    fileChooser.setCurrentDirectory(new File(System.getProperty("user.home")));
+                    int result = fileChooser.showOpenDialog(null);
+
+                    if(result == JFileChooser.APPROVE_OPTION){
+                        FileManager.APFile apfile = FileManager.loadPixelArrayFromFile(fileChooser.getSelectedFile().getPath());
+                        layeredPixelArray = apfile.pixelArray;
+                        bitmapColors = apfile.palette;
+                    }
+
+                }
+            });
+
+            toolmode = 0;
+        }
+
+        if(toolmode == 13){
             int activekey = Keyboard.GetAnyKey();
             if(activekey != -1 && IsCharValidHex((char)activekey)) {
 
@@ -490,163 +738,9 @@ public class Application {
             }
         }
 
-        //Palette Changer
-        if(toolmode == 8){
-            if((Renderer.mouseXPixel >= 9 && Renderer.mouseXPixel < 16) && Renderer.mouseYPixel == 19){
-                toolmode = 12;
-            }
 
-            if(Mouse.GetButton(GLFW.GLFW_MOUSE_BUTTON_1)){
-                if (Renderer.mouseXPixel > 6 && Renderer.mouseXPixel < 29) {
-                    //Red
-                    if (Renderer.mouseYPixel > 3 && Renderer.mouseYPixel < 8) {
-                        float Red = (255 / 21f) * (Renderer.mouseXPixel - 7);
-                        int redint = (int) Red;
-                        int Green = bitmapColors[activeColor].getGreen();
-                        int Blue = bitmapColors[activeColor].getBlue();
 
-                        bitmapColors[activeColor] = new Color(redint, Green, Blue);
-                    }
-
-                    //Green
-                    if (Renderer.mouseYPixel > 8 && Renderer.mouseYPixel < 14) {
-                        int Red = bitmapColors[activeColor].getRed();
-                        float Green = (255 / 21f) * (Renderer.mouseXPixel - 7);
-                        int greenint = (int) Green;
-                        int Blue = bitmapColors[activeColor].getBlue();
-
-                        bitmapColors[activeColor] = new Color(Red, greenint, Blue);
-                    }
-
-                    //Blue
-                    if (Renderer.mouseYPixel > 13 && Renderer.mouseYPixel < 19) {
-                        int Red = bitmapColors[activeColor].getRed();
-                        int Green = bitmapColors[activeColor].getGreen();
-                        float Blue = (255 / 21f) * (Renderer.mouseXPixel - 7);
-                        int blueint = (int) Blue;
-
-                        bitmapColors[activeColor] = new Color(Red, Green, blueint);
-                    }
-                }
-            }
-        }
-
-        if(toolmode == 9){
-            try {
-                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-            }
-            catch (Throwable ex) {
-            }
-            JFileChooser fileChooser = new JFileChooser();
-
-            //Prevent dumbness
-            fileChooser.setFileFilter(new FileFilter() {
-                @Override
-                public boolean accept(File f) {
-                    if(f.getName().endsWith(".ap2") || f.isDirectory()){
-                        return true;
-                    }
-                    return false;
-                }
-
-                @Override
-                public String getDescription() {
-                    return "Austin Paint 2 Files";
-                }
-            });
-
-            fileChooser.setCurrentDirectory(new File(System.getProperty("user.home")));
-            int result = fileChooser.showSaveDialog(null);
-
-            try {
-                String path = fileChooser.getSelectedFile().getPath();
-                if (!path.endsWith(".ap2")) {
-                    path += ".ap2";
-                }
-
-                if (result == JFileChooser.APPROVE_OPTION) {
-                    FileManager.saveFileFromImage(fileChooser.getSelectedFile().getPath(), layeredPixelArray, bitmapColors);
-                }
-            }catch(Exception e){}
-            toolmode = 0;
-        }
-
-        if(toolmode == 10){
-            try {
-                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-            }
-            catch (Throwable ex) {
-            }
-            JFileChooser fileChooser = new JFileChooser();
-
-            //Prevent dumbness
-            fileChooser.setFileFilter(new FileFilter() {
-                @Override
-                public boolean accept(File f) {
-                    if(f.getName().endsWith(".bmp") || f.isDirectory()){
-                        return true;
-                    }
-                    return false;
-                }
-
-                @Override
-                public String getDescription() {
-                    return "Bitmap Image Files";
-                }
-            });
-            fileChooser.setCurrentDirectory(new File(System.getProperty("user.home")));
-            int result = fileChooser.showSaveDialog(null);
-
-            try {
-                String path = fileChooser.getSelectedFile().getPath();
-                if (!path.endsWith(".bmp")) {
-                    path += ".bmp";
-                }
-                if (result == JFileChooser.APPROVE_OPTION) {
-                    FileManager.saveBMPFromImage(fileChooser.getSelectedFile().getPath(), layeredPixelArray, bitmapColors);
-                }
-            }catch(NullPointerException e){}
-
-            toolmode = 0;
-        }
-
-        if(toolmode == 11){
-            try {
-                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-            }
-            catch (Throwable ex) {
-            }
-            JFileChooser fileChooser = new JFileChooser();
-
-            //Prevent dumbness
-            fileChooser.setFileFilter(new FileFilter() {
-                @Override
-                public boolean accept(File f) {
-                    if(f.getName().endsWith(".ap2") || f.isDirectory()){
-                        return true;
-                    }
-                    return false;
-                }
-
-                @Override
-                public String getDescription() {
-                    return "Austin Paint 2 Files";
-                }
-            });
-
-            fileChooser.setCurrentDirectory(new File(System.getProperty("user.home")));
-            int result = fileChooser.showSaveDialog(null);
-
-            if(result == JFileChooser.APPROVE_OPTION){
-                FileManager.APFile apfile = FileManager.loadPixelArrayFromFile(fileChooser.getSelectedFile().getPath());
-                layeredPixelArray = apfile.pixelArray;
-                bitmapColors = apfile.palette;
-            }
-
-            toolmode = 0;
-        }
-
-        if(toolmode > 12){
+        if(toolmode > 13){
             toolmode = 0;
         }
 
@@ -654,12 +748,37 @@ public class Application {
         if(Keyboard.GetKey(GLFW.GLFW_KEY_LEFT_CONTROL)){
             //undo
             if(Keyboard.GetKeyDown(GLFW.GLFW_KEY_Z) && UndoStack.size() > 0){
-
                 UndoEntity ue = UndoStack.getFirst();
+                UndoEntity re = new UndoEntity();
+
+                for(UndoEntity.Pixel2i i : ue.pixelChanges) {
+                    re.AddPixel(i.x, i.y, i.layer, layeredPixelArray[i.x][i.y][i.layer]);
+                }
+                RedoStack.addFirst(re);
+
                 for(UndoEntity.Pixel2i i : ue.pixelChanges){
                     layeredPixelArray[i.x][i.y][i.layer] = i.colorIndex;
                 }
                 UndoStack.removeFirst();
+            }
+
+            //redo
+            if(Keyboard.GetKeyDown(GLFW.GLFW_KEY_Y) && RedoStack.size() > 0){
+                UndoEntity re = RedoStack.getFirst();
+                UndoEntity ue = new UndoEntity();
+
+                for(UndoEntity.Pixel2i i : re.pixelChanges) {
+                    ue.AddPixel(i.x, i.y, i.layer, layeredPixelArray[i.x][i.y][i.layer]);
+                }
+                UndoStack.addFirst(ue);
+
+
+
+                for(UndoEntity.Pixel2i i : re.pixelChanges){
+                    layeredPixelArray[i.x][i.y][i.layer] = i.colorIndex;
+                }
+
+                RedoStack.removeFirst();
             }
 
             //cut
@@ -673,6 +792,7 @@ public class Application {
 
                 UndoEntity ue = new UndoEntity();
                 UndoStack.addFirst(ue);
+                RedoStack.clear();
 
                 for(int x = curSelection.x1; x <= curSelection.x2; x++){
                     for(int y = curSelection.y1; y <= curSelection.y2; y++){
@@ -710,6 +830,7 @@ public class Application {
             if(Keyboard.GetKeyDown(GLFW.GLFW_KEY_V) && clipboardBuffer != null){
                 UndoEntity ue = new UndoEntity();
                 UndoStack.addFirst(ue);
+                RedoStack.clear();
 
                 for(int x = 0; x < 32; x++){
                     for(int y = 0; y < 32; y++){
@@ -726,6 +847,28 @@ public class Application {
     private static boolean IsCharValidHex(char getActiveKey) {
         final String hexChars = "ABDCEF1234567890";
         return hexChars.indexOf(getActiveKey) != -1;
+    }
+
+    private static void floodFill(int[][][] layeredPixelArray, int affectedLayer, Selection curSelection, boolean useSelectionBounds, int x, int y, int targetColorIndex, int colorIndex){
+        int maxX = useSelectionBounds ? curSelection.x2 : 31;
+        int minX = useSelectionBounds ? curSelection.x1 : 0;
+
+        int maxY = useSelectionBounds ? curSelection.y2 : 31;
+        int minY = useSelectionBounds ? curSelection.y1 : 0;
+
+        if((x > maxX || x < minX) || (y > maxY || y < minY) || layeredPixelArray[x][y][affectedLayer] == colorIndex)
+            return;
+
+        if(layeredPixelArray[x][y][affectedLayer] != targetColorIndex)
+            return;
+
+        layeredPixelArray[x][y][affectedLayer] = colorIndex;
+
+        //Spread in the 4 directions
+        floodFill(layeredPixelArray, affectedLayer, curSelection, useSelectionBounds, x + 1, y, targetColorIndex, colorIndex);
+        floodFill(layeredPixelArray, affectedLayer, curSelection, useSelectionBounds, x - 1, y, targetColorIndex, colorIndex);
+        floodFill(layeredPixelArray, affectedLayer, curSelection, useSelectionBounds, x, y + 1, targetColorIndex, colorIndex);
+        floodFill(layeredPixelArray, affectedLayer, curSelection, useSelectionBounds, x, y - 1, targetColorIndex, colorIndex);
     }
 }
 
