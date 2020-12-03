@@ -1,10 +1,9 @@
 package com.thiccindustries.APE2;
 
-import org.lwjgl.BufferUtils;
 import org.lwjgl.glfw.GLFWMouseButtonCallback;
 
-import java.nio.DoubleBuffer;
 import java.util.Arrays;
+
 import static org.lwjgl.glfw.GLFW.GLFW_PRESS;
 import static org.lwjgl.glfw.GLFW.GLFW_RELEASE;
 

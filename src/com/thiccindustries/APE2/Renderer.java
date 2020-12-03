@@ -8,10 +8,13 @@ import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL;
 import java.awt.Color;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
 import java.nio.ByteBuffer;
 import java.nio.DoubleBuffer;
 import java.text.DecimalFormat;
 
+import static com.thiccindustries.APE2.Application.Tool;
 
 public class Renderer {
     public static double mouseX, mouseY;
@@ -22,15 +25,11 @@ public class Renderer {
     private static long window;
 
     public static String fontIndices;
-    private static Texture fallbackTexture;
     private static Texture uiCursor;
 
     private static Texture[] cursorTextures;
-    private static String[] toolTexts;
-
     private static Texture layerBackground;
     private static Texture layerBackground_active;
-
     private static Texture font;
 
     private static double lastTime = 0;
@@ -74,57 +73,31 @@ public class Renderer {
     }
 
     public static void loadResources(){
-        fallbackTexture = null;
+        Texture fallbackTexture = null;
         try{
             fallbackTexture = TextureLoader.loadTextureAPNoFallback("/res/fallback.ap2");
 
         } catch (IOException e) {
             e.printStackTrace();
         }
-        uiCursor = TextureLoader.loadTextureAP("/res/cursor.ap2", fallbackTexture);
-        cursorTextures = new Texture[14];
-        cursorTextures[0]   = TextureLoader.loadTextureAP("/res/tools/pencil.ap2", fallbackTexture);
-        cursorTextures[1]   = TextureLoader.loadTextureAP("/res/tools/erase.ap2", fallbackTexture);
-        cursorTextures[2]   = TextureLoader.loadTextureAP("/res/tools/fill.ap2", fallbackTexture);
-        cursorTextures[3]   = TextureLoader.loadTextureAP("/res/tools/selection.ap2", fallbackTexture);
-        cursorTextures[4]   = TextureLoader.loadTextureAP("/res/tools/move_selection.ap2", fallbackTexture);
-        cursorTextures[5]   = TextureLoader.loadTextureAP("/res/tools/move_pixels.ap2", fallbackTexture);
-        cursorTextures[6]   = TextureLoader.loadTextureAP("/res/tools/mirror_horiz.ap2", fallbackTexture);
-        cursorTextures[7]   = TextureLoader.loadTextureAP("/res/tools/mirror_vert.ap2", fallbackTexture);
-        cursorTextures[8]   = TextureLoader.loadTextureAP("/res/tools/flatten.ap2", fallbackTexture);
-        cursorTextures[9]   = TextureLoader.loadTextureAP("/res/tools/palette.ap2", fallbackTexture);
-        cursorTextures[10]   = TextureLoader.loadTextureAP("/res/tools/save.ap2", fallbackTexture);
-        cursorTextures[11]  = TextureLoader.loadTextureAP("/res/tools/export.ap2", fallbackTexture);
-        cursorTextures[12]  = TextureLoader.loadTextureAP("/res/tools/open.ap2", fallbackTexture);
-        cursorTextures[13]  = TextureLoader.loadTextureAP("/res/tools/cursor_text.ap2", fallbackTexture);
+        uiCursor = TextureLoader.loadTextureAP("/res/ui/cursor.ap2", fallbackTexture);
 
-        toolTexts = new String[]{
-                "Pencil Tool",
-                "Erase Tool",
-                "Fill Tool",
-                "Selection Tool",
-                "Move Selection",
-                "Move Pixels",
-                "Mirror (Horizontal)",
-                "Mirror (Vertical)",
-                "Flatten Image",
-                "Edit Palette",
-                "Save File",
-                "Export Image",
-                "Open File",
-                ""
-        };
+        //Load Tool textures
+        cursorTextures = new Texture[Tool.values().length];
+        for(int tool = 0; tool < cursorTextures.length; tool++)
+            cursorTextures[tool] = TextureLoader.loadTextureAP("/res/tools/" + Tool.values()[tool].toString() + ".ap2", fallbackTexture);
 
-        font = TextureLoader.loadTexture("/res/font.png", fallbackTexture);
+
+        font = TextureLoader.loadTextureHDAP("/res/ui/font.ap2", fallbackTexture);
         fontIndices = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!\"#$%&\'()*+,-./:;<=>?@[\\]^_ {|}~0123456789";
 
-        layerBackground = TextureLoader.loadTextureAP("/res/layerbg_deselected.ap2", fallbackTexture);
-        layerBackground_active = TextureLoader.loadTextureAP("/res/layerbg_selected.ap2", fallbackTexture);
+        layerBackground = TextureLoader.loadTextureAP("/res/ui/layerbg_deselected.ap2", fallbackTexture);
+        layerBackground_active = TextureLoader.loadTextureAP("/res/ui/layerbg_selected.ap2", fallbackTexture);
 
 
         //Set window icon
         try {
-            ByteBuffer iconBuffer = TextureLoader.loadTextureBytesAPNoFallback("/res/icon.ap2");
+            ByteBuffer iconBuffer = TextureLoader.loadTextureBytesAP("/res/icon.ap2");
             GLFWImage.Buffer icons = GLFWImage.malloc(1);
 
             icons
@@ -140,15 +113,35 @@ public class Renderer {
         }
     }
 
-    public static void drawBitmapLayers(int [][][] bitmaps, Color[] bitmapColors){
+    public static void temp_debugFont(){
+        GL11.glColor3f(1,1,1);
+        font.Bind(0);
+        GL11.glEnable(GL11.GL_TEXTURE_2D);
+        GL11.glBegin(GL11.GL_QUADS);
+        {
+            GL11.glTexCoord2i(0,0); GL11.glVertex2i(0,0);
+            GL11.glTexCoord2i(1,0); GL11.glVertex2i((8 * uiScale) + (32 * pixelScale) + (18 * uiScale),0);
+            GL11.glTexCoord2i(1,1); GL11.glVertex2i((8 * uiScale) + (32 * pixelScale) + (18 * uiScale),(32 * pixelScale) + (2 * pixelScale));
+            GL11.glTexCoord2i(0,1); GL11.glVertex2i(0,(32 * pixelScale) + (2 * pixelScale));
+        }
+        GL11.glEnd();
+        GL11.glDisable(GL11.GL_TEXTURE_2D);
+    }
+
+
+    public static void drawBitmapLayers(int [][][] bitmaps, Color[] bitmapColors, boolean allLayers, int layerToDraw){
         //Only draw active layers, as the rest would just waste time, and aren't visible in the ui
         for(int layer = 0; layer < 7; layer++){
             for(int y = 0; y < 32; y++){
                 for(int x = 0; x < 32; x++){
+
+                    if(!allLayers && layer != layerToDraw)
+                        continue;
+
                     //Draw pixel
                     if(bitmaps[x][y][layer] == -1) {
                         GL11.glColor3f(0, 0, 0);
-                        if(layer != 0){
+                        if(layer != 0 && allLayers){
                             continue;
                         }
                     }else {
@@ -249,7 +242,7 @@ public class Renderer {
         }
     }
 
-    public static void drawUI(int toolmode, Color[] palette, int selectedColor, int selectedLayer, boolean drawToolTip){
+    public static void drawUI(Tool toolmode, Color[] palette, int selectedColor, int selectedLayer, boolean drawToolTip){
         /* Draw toolbar */
 
         //Toolbar background
@@ -264,9 +257,11 @@ public class Renderer {
         GL11.glEnd();
 
         //Selected tool
-        int selectedToolHighlightPos = toolmode;
-        if(toolmode == 12)
-            selectedToolHighlightPos = 8;
+        int selectedToolHighlightPos = toolmode.ordinal();
+
+        //Highlight the color tool when on the internal text tool
+        if(toolmode == Tool.txt_color)
+            selectedToolHighlightPos = Tool.color.ordinal();
 
         GL11.glColor3ub((byte)0,(byte)74,(byte)127);
         GL11.glBegin(GL11.GL_QUADS);
@@ -382,20 +377,19 @@ public class Renderer {
         if(drawToolTip) {
             int mouseTool = mouseYPixel / 2;
 
-            if (mouseTool >= 12)
-                mouseTool = 12;
             if(mouseTool < 0)
                 mouseTool = 0;
 
-            drawText(toolTexts[mouseTool], (int) mouseX + pixelScale, (int) mouseY + pixelScale, 1, true, Color.white, Color.black);
+            if (mouseTool <= 12)
+                drawText(Tool.values()[mouseTool].getName(), (int) mouseX + pixelScale, (int) mouseY + pixelScale, 1, true, Color.white, Color.black);
         }
 
 
         GL11.glColor3f(1,1,1);
         GL11.glEnable(GL11.GL_TEXTURE_2D);
         //If inside bitmap field
-        if((mouseXPixel > 1 && mouseXPixel < 34) && (mouseYPixel >= 0 && mouseYPixel < 32) && toolmode != 9) {
-            cursorTextures[toolmode].Bind(0);
+        if((mouseXPixel > 1 && mouseXPixel < 34) && (mouseYPixel >= 0 && mouseYPixel < 32) && toolmode != Tool.color) {
+            cursorTextures[toolmode.ordinal()].Bind(0);
         }else{
             uiCursor.Bind(0);
         }
@@ -412,6 +406,51 @@ public class Renderer {
     }
 
     //Palette Editing screen
+    public static void drawDebugInf(Tool toolmode, Color[] palette, int activeColor, int activeLayer) {
+        //Color Selector
+        int uiOffset = 2 * (pixelScale);
+
+        //Window Border
+        for (int x = 0; x < 28; x++) {
+            for (int y = 0; y < 14; y++) {
+                //checkboard pattern
+                Color UIColor = new Color(127, 127, 127);
+                if ((x > 0 && x < 27) && (y > 0 && y < 13))
+                    UIColor = Color.black;
+
+                GL11.glColor3f(UIColor.getRed() / 255f, UIColor.getGreen() / 255f, UIColor.getBlue() / 255f);
+                GL11.glBegin(GL11.GL_QUADS);
+                {
+                    GL11.glVertex2i((2 * pixelScale) + (x * pixelScale) + uiOffset, (y * pixelScale) + uiOffset);
+                    GL11.glVertex2i((2 * pixelScale) + (x * pixelScale) + uiOffset + pixelScale, (y * pixelScale) + uiOffset);
+                    GL11.glVertex2i((2 * pixelScale) + (x * pixelScale) + uiOffset + pixelScale, (y * pixelScale) + uiOffset + pixelScale);
+                    GL11.glVertex2i((2 * pixelScale) + (x * pixelScale) + uiOffset, (y * pixelScale) + uiOffset + pixelScale);
+                }
+                GL11.glEnd();
+            }
+        }
+
+        DecimalFormat df = new DecimalFormat("000");
+
+        drawText("Debug Info: (F3)", 6 * pixelScale, (4 * pixelScale), 1, false, Color.white, null);
+
+        drawText("FPS:   ", 6 * pixelScale,     6 * pixelScale, 1, false, Color.white, null);
+        drawFPS(            13 * pixelScale,    6 * pixelScale, 1, false, Color.white, null);
+
+        drawText("Tool:  " + toolmode.toString(),    6 * pixelScale,    8 * pixelScale, 1, false, Color.white, null);
+        drawText("\"" + toolmode.getName() + "\"",   13 * pixelScale,   9 * pixelScale, 1, false, Color.white, null);
+
+        drawText("Color: " + activeColor, 6 * pixelScale, 11 * pixelScale, 1, false, Color.white, null);
+
+        String hex = "#" + String.format("%02X", palette[activeColor].getRed()) + String.format("%02X", palette[activeColor].getGreen()) + String.format("%02X", palette[activeColor].getBlue());
+        drawText(hex, 16 * pixelScale, 11 * pixelScale, 1, false,  Color.white, null);
+
+        drawText("Layer: " + activeLayer, 6 * pixelScale, 13 * pixelScale, 1, false, Color.white, null);
+
+    }
+
+
+        //Palette Editing screen
     public static void drawColorSelection(Color[] Palette, int selectedColor, boolean toolmode) {
         //Color Selector
         int uiOffset = 2 * (pixelScale);
@@ -595,11 +634,11 @@ public class Renderer {
             char[] chars = fontIndices.toCharArray();
             int indexLinear = ArrayUtils.indexOf(chars, charArray[charIndex]);
 
-            int indexX = indexLinear % 10;
-            int indexY = indexLinear / 10;
+            int indexX = indexLinear % 12;
+            int indexY = indexLinear / 12;
 
-            float textureOffsetX = indexX / 10f;
-            float textureOFfsetY = indexY / 10f;
+            float textureOffsetX = indexX / 12f;
+            float textureOFfsetY = indexY / 8f;
 
             GL11.glEnable(GL11.GL_TEXTURE_2D);
             GL11.glColor3ub((byte)textColor.getRed(), (byte)textColor.getGreen(), (byte)textColor.getBlue());
@@ -607,9 +646,9 @@ public class Renderer {
             GL11.glBegin(GL11.GL_QUADS);
             {
                 GL11.glTexCoord2f(textureOffsetX,                   textureOFfsetY);                GL11.glVertex2f(posX + (charIndex * charSize),              posY);
-                GL11.glTexCoord2f( (1f / 10f) + textureOffsetX,     textureOFfsetY);                GL11.glVertex2f(posX + (charIndex * charSize) + charSize,   posY);
-                GL11.glTexCoord2f( (1f / 10f) + textureOffsetX,     (1f / 10f) + textureOFfsetY);   GL11.glVertex2f(posX + (charIndex * charSize) + charSize,   posY + charSize);
-                GL11.glTexCoord2f(textureOffsetX,                   (1f / 10f) + textureOFfsetY);   GL11.glVertex2f(posX + (charIndex * charSize),              posY + charSize);
+                GL11.glTexCoord2f( (1f / 12f) + textureOffsetX,     textureOFfsetY);                GL11.glVertex2f(posX + (charIndex * charSize) + charSize,   posY);
+                GL11.glTexCoord2f( (1f / 12f) + textureOffsetX,     (1f / 8f) + textureOFfsetY);   GL11.glVertex2f(posX + (charIndex * charSize) + charSize,   posY + charSize);
+                GL11.glTexCoord2f(textureOffsetX,                   (1f / 8f) + textureOFfsetY);   GL11.glVertex2f(posX + (charIndex * charSize),              posY + charSize);
 
             }
             GL11.glEnd();
@@ -643,5 +682,12 @@ public class Renderer {
             return min;
 
         return value;
+    }
+
+    public static Color subtractColor(Color a, Color b){
+        return new Color(
+                a.getRed()      - b.getRed(),
+                a.getGreen()    - b.getGreen(),
+                a.getBlue()     - b.getBlue());
     }
 }
