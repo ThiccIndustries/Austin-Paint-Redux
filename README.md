@@ -23,6 +23,7 @@ Tools:
 * Move Pixels - Move pixels inside selection.
 * Mirror (Horizontal) - Horizontally flip the selection.
 * Mirror (Vertical) - Vertically flip the selection.
+* Flatten - Flattens the image to one layer.
 * Palette Editor - Edit palette colors.
 * Save - Save AP2 file.
 * Export - Export BMP file.
@@ -33,6 +34,7 @@ Keybinds:
 * Control + C - Copy selection
 * Control + V - Paste selection
 * Control + Z - Undo
+* Control + R - Redo
 ### Libraries:
 Austin paint redux uses the following libraries:
 - LWJGL 3 Graphics library - [LINK](https://www.lwjgl.org/)
