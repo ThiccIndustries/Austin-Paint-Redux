@@ -39,4 +39,3 @@ Keybinds:
 Austin paint redux uses the following libraries:
 - LWJGL 3 Graphics library - [LINK](https://www.lwjgl.org/)
 - Apache Commons (Lang and IO) - [LINK](https://commons.apache.org/)
-- LibGDX TWL (PNGDecoder) - [LINK](https://libgdx.badlogicgames.com/)
