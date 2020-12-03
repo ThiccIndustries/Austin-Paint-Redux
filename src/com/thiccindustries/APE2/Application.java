@@ -8,6 +8,8 @@ import java.awt.*;
 import java.io.File;
 import java.util.LinkedList;
 
+import static com.thiccindustries.APE2.Resources.*;
+
 public class Application {
 
     private static int[][][] layeredPixelArray = new int[32][32][7]; //x, y, layer
@@ -20,15 +22,15 @@ public class Application {
     private static boolean drawStacked = true;
     private static boolean debugDraw = false;
 
+    private static boolean safeExit = true; //Save to exit without warning
+
     private static int lastClickX, lastClickY;
 
-    private static LinkedList<UndoEntity> UndoStack = new LinkedList<UndoEntity>();
+    private static final LinkedList<UndoEntity> UndoStack = new LinkedList<>();
 
-    private static LinkedList<UndoEntity> RedoStack = new LinkedList<UndoEntity>();
+    private static final LinkedList<UndoEntity> RedoStack = new LinkedList<>();
 
 
-    //Text editing
-    private static int hexInputLength = 0;
     private static String hexBuffer = "";
 
     private static Color[] bitmapColors = {
@@ -70,33 +72,51 @@ public class Application {
             bitmapColors = apfile.palette;
         }
 
-        
+
         Renderer.initGLFWAndCreateWindow(1);
-        Renderer.loadResources();
+
+        Resources.InitResources();
+        
         curSelection = new Selection();
 
         while(!Renderer.windowShouldClose()){
+            //Update input
             Mouse.Update();
             Keyboard.Update();
             Renderer.pollWindowEvents();
 
             Actions();
 
+            //Close has been requested by the user
+            if(Renderer.windowShouldClose()){
+                if(!(safeExit || toolmode == Tool.save_warn)) {
+                    toolmode = Tool.save_warn;
+                    Renderer.abortWindowClose();
+                }
+            }
+
+            //Begin rendering
             Renderer.drawBitmapLayers(layeredPixelArray, bitmapColors, drawStacked, activeLayer);
             Renderer.drawBitmapLayersSplit(layeredPixelArray, bitmapColors);
             Renderer.drawSelection(curSelection);
 
-            if(toolmode == Tool.color || toolmode == Tool.txt_color)
+            //Draw palette editing screen, this also occurs if the tool is txt_color
+            if(toolmode.getdisplayTool() == Tool.color)
                 Renderer.drawColorSelection(bitmapColors, activeColor, toolmode == Tool.txt_color);
 
+            if(toolmode == Tool.save_warn)
+                Renderer.drawDialog(new String[]{"Warning: unsaved changes", "press close again", "to exit."}, "Cancel", Tool.pencil);
+
+            //Draws debug screen
             if(debugDraw)
-                Renderer.drawDebugInf(toolmode, bitmapColors, activeColor, activeLayer);
+                Renderer.drawDebugInf(toolmode, bitmapColors, activeColor, activeLayer, safeExit);
 
             Renderer.drawUI(toolmode, bitmapColors, activeColor, activeLayer, Renderer.mouseXPixel < 2);
 
             Renderer.drawText("Fps: ",(int)(34.5 * Renderer.pixelScale), 32 * Renderer.pixelScale - Renderer.uiScale, 1, false, Color.white, null);
             Renderer.drawFPS((int)(34.5 * Renderer.pixelScale), 33 * Renderer.pixelScale, 1, false, Color.white, null);
 
+            //Finish rendering
             Renderer.completeFrame();
         }
 
@@ -104,6 +124,10 @@ public class Application {
     }
 
     private static void Actions() {
+        //Require another mouse click before acting as a pencil (Pencil_wait)
+        if(toolmode == Tool.pencil_wait && Mouse.GetButtonDown(GLFW.GLFW_MOUSE_BUTTON_1)){
+            toolmode = Tool.pencil;
+        }
 
         //Toolbar
         if(Renderer.mouseXPixel < 2){
@@ -142,17 +166,10 @@ public class Application {
 
         //Flip horiz
         if(toolmode == Tool.mirror_h){
-            if(curSelection.selectionStage != 3){
-                toolmode = Tool.pencil;
-            }else {
+            if (curSelection.selectionStage == 3) {
                 int[][] flippedPixelArray = new int[curSelection.x2 - curSelection.x1 + 1][curSelection.y2 - curSelection.y1 + 1];
 
-                clipboardBuffer = new int[32][32];
-                for (int y = 0; y < 32; y++) {
-                    for (int x = 0; x < 32; x++) {
-                        clipboardBuffer[x][y] = -1;
-                    }
-                }
+                clipboardBuffer = resetClipboardBuffer();
 
                 for (int x = 0; x <= curSelection.x2 - curSelection.x1; x++) {
                     for (int y = 0; y <= curSelection.y2 - curSelection.y1; y++) {
@@ -169,8 +186,10 @@ public class Application {
                 //Paste
                 UndoEntity ue = new UndoEntity();
                 UndoStack.addFirst(ue);
+                safeExit = false;
+
                 RedoStack.clear();
-                
+
                 for (int x = curSelection.x1; x <= curSelection.x2; x++) {
                     for (int y = curSelection.y1; y < curSelection.y2; y++) {
                         ue.AddPixel(x, y, activeLayer, layeredPixelArray[x][y][activeLayer]);
@@ -186,8 +205,8 @@ public class Application {
                         layeredPixelArray[x][y][activeLayer] = clipboardBuffer[x][y];
                     }
                 }
-                toolmode = Tool.pencil;
             }
+            toolmode = Tool.pencil;
         }
 
         //Flip vert
@@ -197,12 +216,7 @@ public class Application {
             } else {
                 int[][] flippedPixelArray = new int[curSelection.x2 - curSelection.x1 + 1][curSelection.y2 - curSelection.y1 + 1];
 
-                clipboardBuffer = new int[32][32];
-                for (int y = 0; y < 32; y++) {
-                    for (int x = 0; x < 32; x++) {
-                        clipboardBuffer[x][y] = -1;
-                    }
-                }
+                clipboardBuffer = resetClipboardBuffer();
 
                 for (int x = 0; x <= curSelection.x2 - curSelection.x1; x++) {
                     for (int y = 0; y <= curSelection.y2 - curSelection.y1; y++) {
@@ -219,6 +233,7 @@ public class Application {
                 //Paste
                 UndoEntity ue = new UndoEntity();
                 UndoStack.addFirst(ue);
+                safeExit = false;
                 RedoStack.clear();
                 for (int x = curSelection.x1; x <= curSelection.x2; x++) {
                     for (int y = curSelection.y1; y < curSelection.y2; y++) {
@@ -255,9 +270,12 @@ public class Application {
                     }
                     if(Mouse.GetButton(GLFW.GLFW_MOUSE_BUTTON_1)) {
                         UndoStack.getFirst().AddPixel(Renderer.mouseXPixel - 2, Renderer.mouseYPixel, activeLayer, layeredPixelArray[Renderer.mouseXPixel - 2][Renderer.mouseYPixel][activeLayer]);
+                        safeExit = false;
+
                         layeredPixelArray[Renderer.mouseXPixel - 2][Renderer.mouseYPixel][activeLayer] = activeColor;
                     }
                 }
+
                 //Erase
                 if(toolmode == Tool.erase){
                     if(Mouse.GetButtonDown(GLFW.GLFW_MOUSE_BUTTON_1)){
@@ -267,12 +285,15 @@ public class Application {
                     }
                     if(Mouse.GetButton(GLFW.GLFW_MOUSE_BUTTON_1)) {
                         UndoStack.getFirst().AddPixel(Renderer.mouseXPixel - 2, Renderer.mouseYPixel, activeLayer, layeredPixelArray[Renderer.mouseXPixel - 2][Renderer.mouseYPixel][activeLayer]);
+                        safeExit = false;
                         layeredPixelArray[Renderer.mouseXPixel - 2][Renderer.mouseYPixel][activeLayer] = -1;
                     }
                 }
+
                 //Fill
                 if(toolmode == Tool.fill){
                     if(Mouse.GetButtonDown(GLFW.GLFW_MOUSE_BUTTON_1)) {
+                        safeExit = false;
 
                         //No finished selection
                         if(curSelection.selectionStage != 3) {
@@ -404,6 +425,8 @@ public class Application {
                     }
 
                     if(Mouse.GetButton(GLFW.GLFW_MOUSE_BUTTON_1)){
+                        safeExit = false;
+
                         if(lastClickX != (Renderer.mouseXPixel - 2)){
                             //Cut
                             clipboardBuffer = new int[32][32];
@@ -431,7 +454,7 @@ public class Application {
 
                             for(int x = 0; x < 32; x++){
                                 for(int y = 0; y < 32; y++){
-                                    if(x + ((Renderer.mouseXPixel - 2) - lastClickX) < 0 || x + ((Renderer.mouseXPixel - 2) - lastClickX) > 31 || y < 0 || y > 31)
+                                    if(x + ((Renderer.mouseXPixel - 2) - lastClickX) < 0 || x + ((Renderer.mouseXPixel - 2) - lastClickX) > 31)
                                         continue;
 
                                     if(clipboardBuffer[x][y] == -1)
@@ -483,7 +506,7 @@ public class Application {
 
                             for(int x = 0; x < 32; x++){
                                 for(int y = 0; y < 32; y++){
-                                    if(x < 0 || x > 31 || y + (Renderer.mouseYPixel - lastClickY) < 0 || y + (Renderer.mouseYPixel - lastClickY) > 31)
+                                    if(y + (Renderer.mouseYPixel - lastClickY) < 0 || y + (Renderer.mouseYPixel - lastClickY) > 31)
                                         continue;
 
                                     if(clipboardBuffer[x][y] == -1)
@@ -514,6 +537,8 @@ public class Application {
 
         //Flatten
         if(toolmode == Tool.flatten){
+            safeExit = false;
+
             //this boy be MASSIVE
             UndoEntity ue = new UndoEntity();
 
@@ -542,7 +567,7 @@ public class Application {
         //Palette Changer
         if(toolmode == Tool.color){
             if((Renderer.mouseXPixel >= 9 && Renderer.mouseXPixel < 16) && Renderer.mouseYPixel == 19){
-                hexInputLength = 0;
+                //Text editing
                 hexBuffer = "";
                 toolmode = Tool.txt_color;
             }
@@ -591,20 +616,18 @@ public class Application {
             try {
                 UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
             }
-            catch (Throwable ex) {
+            catch (Throwable ignored) {
             }
 
             EventQueue.invokeLater(() -> {
+
                 JFileChooser fileChooser = new JFileChooser();
 
                 //Prevent dumbness
                 fileChooser.setFileFilter(new FileFilter() {
                     @Override
                     public boolean accept(File f) {
-                        if(f.getName().endsWith(".ap2") || f.isDirectory()){
-                            return true;
-                        }
-                        return false;
+                        return f.getName().endsWith(".ap2") || f.isDirectory();
                     }
 
                     @Override
@@ -625,9 +648,11 @@ public class Application {
 
                     if (result == JFileChooser.APPROVE_OPTION) {
                         FileManager.saveFileFromImage(path, layeredPixelArray, bitmapColors);
+                        safeExit = true;
                     }
-                }catch(Exception e){}
+                }catch(Exception ignored){}
             });
+
             toolmode = Tool.pencil;
         }
 
@@ -636,7 +661,7 @@ public class Application {
             try {
                 UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
             }
-            catch (Throwable ex) {
+            catch (Throwable ignored) {
             }
 
             EventQueue.invokeLater(() -> {
@@ -646,10 +671,7 @@ public class Application {
                 fileChooser.setFileFilter(new FileFilter() {
                     @Override
                     public boolean accept(File f) {
-                        if(f.getName().endsWith(".bmp") || f.isDirectory()){
-                            return true;
-                        }
-                        return false;
+                        return f.getName().endsWith(".bmp") || f.isDirectory();
                     }
 
                     @Override
@@ -669,8 +691,7 @@ public class Application {
                     if (result == JFileChooser.APPROVE_OPTION) {
                         FileManager.saveBMPFromImage(path, layeredPixelArray, bitmapColors);
                     }
-                }catch(NullPointerException e){}
-
+                }catch(NullPointerException ignored){}
             });
 
             toolmode = Tool.pencil;
@@ -681,7 +702,7 @@ public class Application {
             try {
                 UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
             }
-            catch (Throwable ex) {
+            catch (Throwable ignored) {
             }
 
             EventQueue.invokeLater(() -> {
@@ -691,10 +712,7 @@ public class Application {
                 fileChooser.setFileFilter(new FileFilter() {
                     @Override
                     public boolean accept(File f) {
-                        if(f.getName().endsWith(".ap2") || f.isDirectory()){
-                            return true;
-                        }
-                        return false;
+                        return f.getName().endsWith(".ap2") || f.isDirectory();
                     }
 
                     @Override
@@ -711,9 +729,7 @@ public class Application {
                     layeredPixelArray = apfile.pixelArray;
                     bitmapColors = apfile.palette;
                 }
-
             });
-
             toolmode = Tool.pencil;
         }
 
@@ -722,16 +738,14 @@ public class Application {
             int activekey = Keyboard.GetAnyKey();
             if(activekey != -1 && IsCharValidHex((char)activekey)) {
 
-                if(hexBuffer.length() < 6){
-                    hexBuffer += (char)activekey;
-                }else{
+                if (hexBuffer.length() >= 6) {
                     hexBuffer = "";
-                    hexBuffer += (char)activekey;
                 }
+                hexBuffer += (char)activekey;
 
-                String finalHexValue = hexBuffer;
+                StringBuilder finalHexValue = new StringBuilder(hexBuffer);
                 for(int i = 0; i < 6 - hexBuffer.length(); i++){
-                    finalHexValue += "0";
+                    finalHexValue.append("0");
                 }
 
 
@@ -745,6 +759,13 @@ public class Application {
                 toolmode = Tool.color;
 
             }
+        }
+
+        //Save warning box (Internal)
+        if(toolmode == Tool.save_warn){
+            //Clicked dismiss button
+            if((Renderer.mouseXPixel >= 15 && Renderer.mouseXPixel <= 20) && Renderer.mouseYPixel == 21 && Mouse.GetButtonDown(GLFW.GLFW_MOUSE_BUTTON_1))
+                toolmode = Tool.pencil_wait;
         }
 
         //Change color index right
@@ -765,6 +786,8 @@ public class Application {
         if(Keyboard.GetKey(GLFW.GLFW_KEY_LEFT_CONTROL)){
             //undo
             if(Keyboard.GetKeyDown(GLFW.GLFW_KEY_Z) && UndoStack.size() > 0){
+                safeExit = false;
+
                 UndoEntity ue = UndoStack.getFirst();
                 UndoEntity re = new UndoEntity();
 
@@ -781,6 +804,8 @@ public class Application {
 
             //redo
             if(Keyboard.GetKeyDown(GLFW.GLFW_KEY_Y) && RedoStack.size() > 0){
+                safeExit = false;
+
                 UndoEntity re = RedoStack.getFirst();
                 UndoEntity ue = new UndoEntity();
 
@@ -800,6 +825,8 @@ public class Application {
 
             //cut
             if(Keyboard.GetKeyDown(GLFW.GLFW_KEY_X) && curSelection.selectionStage == 3){
+                safeExit = false;
+
                 clipboardBuffer = new int[32][32];
                 for (int y = 0; y < 32; y++) {
                     for (int x = 0; x < 32; x++) {
@@ -845,6 +872,8 @@ public class Application {
 
             //paste
             if(Keyboard.GetKeyDown(GLFW.GLFW_KEY_V) && clipboardBuffer != null){
+                safeExit = false;
+
                 UndoEntity ue = new UndoEntity();
                 UndoStack.addFirst(ue);
                 RedoStack.clear();
@@ -878,6 +907,17 @@ public class Application {
         }
     }
 
+    //Create a new, empty clipboard buffer
+    private static int[][] resetClipboardBuffer() {
+        int[][] newBuffer = new int[32][32]; //While this is wasteful memory wise, it prevents the clipboard buffer from ever being null
+        for(int x = 0; x < 32; x++){
+            for(int y = 0; y < 32; y++){
+                newBuffer[x][y] = -1;
+            }
+        }
+        return newBuffer;
+    }
+
     private static boolean IsCharValidHex(char getActiveKey) {
         final String hexChars = "ABDCEF1234567890";
         return hexChars.indexOf(getActiveKey) != -1;
@@ -905,37 +945,6 @@ public class Application {
         floodFill(layeredPixelArray, affectedLayer, curSelection, useSelectionBounds, x, y - 1, targetColorIndex, colorIndex);
     }
 
-    public enum Tool{
-
-        //Toolbar tools
-        pencil      ("Pencil Tool"),
-        erase       ("Erase Tool"),
-        fill        ("Fill Tool"),
-        select      ("Selection Tool"),
-        move_sel    ("Move Selection"),
-        move_pixel  ("Move Pixels"),
-        mirror_h    ("Mirror Horizontal"),
-        mirror_v    ("Mirror Vertical"),
-        flatten     ("Flatten"),
-        color       ("Edit Palette"),
-        save        ("Save Image"),
-        export      ("Export BMP"),
-        open        ("Open Image"),
-
-        //Internal Tools
-        txt_color;
-
-        String name;
-        Tool(String name){
-            this.name = name;
-        }
-
-        Tool(){
-            this.name = "missingno.";
-        }
-
-        public String getName(){ return name; }
-    }
 }
 
 

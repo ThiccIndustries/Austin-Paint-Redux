@@ -8,13 +8,11 @@ import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL;
 import java.awt.Color;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
-import java.net.URLDecoder;
 import java.nio.ByteBuffer;
 import java.nio.DoubleBuffer;
 import java.text.DecimalFormat;
 
-import static com.thiccindustries.APE2.Application.Tool;
+import static com.thiccindustries.APE2.Resources.*;
 
 public class Renderer {
     public static double mouseX, mouseY;
@@ -23,14 +21,6 @@ public class Renderer {
     public static int uiScale = 4;
     public static int rawScale = 1;
     private static long window;
-
-    public static String fontIndices;
-    private static Texture uiCursor;
-
-    private static Texture[] cursorTextures;
-    private static Texture layerBackground;
-    private static Texture layerBackground_active;
-    private static Texture font;
 
     private static double lastTime = 0;
     private static int FPS = 0;
@@ -70,30 +60,6 @@ public class Renderer {
         GLFW.glfwSetKeyCallback(window, new Keyboard());
         GLFW.glfwSetMouseButtonCallback(window, new Mouse());
 
-    }
-
-    public static void loadResources(){
-        Texture fallbackTexture = null;
-        try{
-            fallbackTexture = TextureLoader.loadTextureAPNoFallback("/res/fallback.ap2");
-
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        uiCursor = TextureLoader.loadTextureAP("/res/ui/cursor.ap2", fallbackTexture);
-
-        //Load Tool textures
-        cursorTextures = new Texture[Tool.values().length];
-        for(int tool = 0; tool < cursorTextures.length; tool++)
-            cursorTextures[tool] = TextureLoader.loadTextureAP("/res/tools/" + Tool.values()[tool].toString() + ".ap2", fallbackTexture);
-
-
-        font = TextureLoader.loadTextureHDAP("/res/ui/font.ap2", fallbackTexture);
-        fontIndices = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!\"#$%&\'()*+,-./:;<=>?@[\\]^_ {|}~0123456789";
-
-        layerBackground = TextureLoader.loadTextureAP("/res/ui/layerbg_deselected.ap2", fallbackTexture);
-        layerBackground_active = TextureLoader.loadTextureAP("/res/ui/layerbg_selected.ap2", fallbackTexture);
-
 
         //Set window icon
         try {
@@ -127,7 +93,6 @@ public class Renderer {
         GL11.glEnd();
         GL11.glDisable(GL11.GL_TEXTURE_2D);
     }
-
 
     public static void drawBitmapLayers(int [][][] bitmaps, Color[] bitmapColors, boolean allLayers, int layerToDraw){
         //Only draw active layers, as the rest would just waste time, and aren't visible in the ui
@@ -257,11 +222,7 @@ public class Renderer {
         GL11.glEnd();
 
         //Selected tool
-        int selectedToolHighlightPos = toolmode.ordinal();
-
-        //Highlight the color tool when on the internal text tool
-        if(toolmode == Tool.txt_color)
-            selectedToolHighlightPos = Tool.color.ordinal();
+        int selectedToolHighlightPos = toolmode.getdisplayTool().ordinal();
 
         GL11.glColor3ub((byte)0,(byte)74,(byte)127);
         GL11.glBegin(GL11.GL_QUADS);
@@ -275,10 +236,16 @@ public class Renderer {
 
 
         //Tool icons
-        for(int i = 0; i < cursorTextures.length - 1; i++){
+        for(int i = 0; i < Tool.values().length; i++){
+
+            //Only display visible tools
+            if(!Tool.values()[i].display())
+                continue;
+
+            cursorTextures[ Tool.values()[i].getdisplayTool().ordinal() ].Bind(0);
+
             GL11.glEnable(GL11.GL_TEXTURE_2D);
             GL11.glColor3f(1,1,1);
-            cursorTextures[i].Bind(0);
             GL11.glBegin(GL11.GL_QUADS);
             {
                 GL11.glTexCoord2i(0,0); GL11.glVertex2i(0,                  (i * (8 * uiScale)));
@@ -404,18 +371,17 @@ public class Renderer {
         GL11.glEnd();
         GL11.glDisable(GL11.GL_TEXTURE_2D);
     }
-
-    //Palette Editing screen
-    public static void drawDebugInf(Tool toolmode, Color[] palette, int activeColor, int activeLayer) {
+    //Debug info
+    public static void drawDebugInf(Tool toolmode, Color[] palette, int activeColor, int activeLayer, boolean safeExit) {
         //Color Selector
         int uiOffset = 2 * (pixelScale);
 
         //Window Border
         for (int x = 0; x < 28; x++) {
-            for (int y = 0; y < 14; y++) {
+            for (int y = 0; y < 16; y++) {
                 //checkboard pattern
                 Color UIColor = new Color(127, 127, 127);
-                if ((x > 0 && x < 27) && (y > 0 && y < 13))
+                if ((x > 0 && x < 27) && (y > 0 && y < 15))
                     UIColor = Color.black;
 
                 GL11.glColor3f(UIColor.getRed() / 255f, UIColor.getGreen() / 255f, UIColor.getBlue() / 255f);
@@ -447,10 +413,50 @@ public class Renderer {
 
         drawText("Layer: " + activeLayer, 6 * pixelScale, 13 * pixelScale, 1, false, Color.white, null);
 
+        drawText("Exit warn: " + !safeExit, 6 * pixelScale, 15 * pixelScale, 1, false, Color.white, null);
     }
 
+    //Draw a dialog box
+    public static void drawDialog(String[] messageLines, String buttonText, Tool acceptTool) {
 
-        //Palette Editing screen
+        int uiOffset    = 2 * (pixelScale);
+        int uiOffsetY   = 10 * (pixelScale);
+
+        //Window Border
+        for (int x = 0; x < 28; x++) {
+            for (int y = 0; y < 14; y++) {
+                Color UIColor = new Color(127, 127, 127);
+                if ((x > 0 && x < 27) && (y > 0 && y < 13))
+                    UIColor = Color.black;
+
+                GL11.glColor3f(UIColor.getRed() / 255f, UIColor.getGreen() / 255f, UIColor.getBlue() / 255f);
+                GL11.glBegin(GL11.GL_QUADS);
+                {
+                    GL11.glVertex2i((2 * pixelScale) + (x * pixelScale) + uiOffset,                 (y * pixelScale) + uiOffsetY);
+                    GL11.glVertex2i((2 * pixelScale) + (x * pixelScale) + uiOffset + pixelScale,    (y * pixelScale) + uiOffsetY);
+                    GL11.glVertex2i((2 * pixelScale) + (x * pixelScale) + uiOffset + pixelScale,    (y * pixelScale) + uiOffsetY + pixelScale);
+                    GL11.glVertex2i((2 * pixelScale) + (x * pixelScale) + uiOffset,                 (y * pixelScale) + uiOffsetY + pixelScale);
+                }
+                GL11.glEnd();
+            }
+        }
+
+        int textCharOffset;
+        for(int i = 0; i < messageLines.length; i++){
+            textCharOffset = 12 - Clamp(messageLines[i].length() / 2, 0, 12);
+            drawText(messageLines[i], uiOffset + (4 * pixelScale) + (textCharOffset * pixelScale), uiOffsetY + ((i + 2) * pixelScale), 1, false, Color.white, null);
+        }
+
+        //Draw button
+        int buttonTextCharOffset = 11 - Clamp(buttonText.length() / 2, 0, 11);
+        uiOffset = (2 + buttonTextCharOffset) * pixelScale;
+        uiOffsetY = 20 * pixelScale;
+
+        drawText(buttonText, uiOffset + (5 * pixelScale), (uiOffsetY + pixelScale), 1, true, Color.black, Color.gray);
+
+    }
+
+    //Palette Editing screen
     public static void drawColorSelection(Color[] Palette, int selectedColor, boolean toolmode) {
         //Color Selector
         int uiOffset = 2 * (pixelScale);
@@ -657,6 +663,8 @@ public class Renderer {
         }
     }
 
+
+    //GLFW command pass though
     public static boolean windowShouldClose(){
         return GLFW.glfwWindowShouldClose(window);
     }
@@ -675,6 +683,7 @@ public class Renderer {
     }
 
 
+    //Utilities
     public static float Clamp(float value, float min, float max){
         if (value > max)
             return max;
@@ -683,11 +692,22 @@ public class Renderer {
 
         return value;
     }
+    public static int Clamp(int value, int min, int max){
+        if (value > max)
+            return max;
+        if(value < min)
+            return min;
 
+        return value;
+    }
     public static Color subtractColor(Color a, Color b){
         return new Color(
                 a.getRed()      - b.getRed(),
                 a.getGreen()    - b.getGreen(),
                 a.getBlue()     - b.getBlue());
     }
+    public static void abortWindowClose() {
+        GLFW.glfwSetWindowShouldClose(window, false);
+    }
+
 }
