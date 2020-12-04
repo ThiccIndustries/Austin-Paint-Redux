@@ -79,6 +79,7 @@ public class Renderer {
         }
     }
 
+    @SuppressWarnings("unused")
     public static void temp_debugFont(){
         GL11.glColor3f(1,1,1);
         font.Bind(0);
@@ -222,7 +223,7 @@ public class Renderer {
         GL11.glEnd();
 
         //Selected tool
-        int selectedToolHighlightPos = toolmode.getdisplayTool().ordinal();
+        int selectedToolHighlightPos = toolmode.getDisplayTool().ordinal();
 
         GL11.glColor3ub((byte)0,(byte)74,(byte)127);
         GL11.glBegin(GL11.GL_QUADS);
@@ -242,15 +243,15 @@ public class Renderer {
             if(!Tool.values()[i].display())
                 continue;
 
-            cursorTextures[ Tool.values()[i].getdisplayTool().ordinal() ].Bind(0);
+            cursorTextures[ Tool.values()[i].getDisplayTool().ordinal() ].Bind(0);
 
             GL11.glEnable(GL11.GL_TEXTURE_2D);
             GL11.glColor3f(1,1,1);
             GL11.glBegin(GL11.GL_QUADS);
             {
                 GL11.glTexCoord2i(0,0); GL11.glVertex2i(0,                  (i * (8 * uiScale)));
-                GL11.glTexCoord2i(1,0); GL11.glVertex2i(0 + (8 * uiScale),  (i * (8 * uiScale)));
-                GL11.glTexCoord2i(1,1); GL11.glVertex2i(0 + (8 * uiScale),  (i * (8 * uiScale)) + (8 * uiScale));
+                GL11.glTexCoord2i(1,0); GL11.glVertex2i((8 * uiScale),      (i * (8 * uiScale)));
+                GL11.glTexCoord2i(1,1); GL11.glVertex2i((8 * uiScale),      (i * (8 * uiScale)) + (8 * uiScale));
                 GL11.glTexCoord2i(0,1); GL11.glVertex2i(0,                  (i * (8 * uiScale)) + (8 * uiScale));
             }
             GL11.glEnd();
@@ -396,8 +397,6 @@ public class Renderer {
             }
         }
 
-        DecimalFormat df = new DecimalFormat("000");
-
         drawText("Debug Info: (F3)", 6 * pixelScale, (4 * pixelScale), 1, false, Color.white, null);
 
         drawText("FPS:   ", 6 * pixelScale,     6 * pixelScale, 1, false, Color.white, null);
@@ -417,7 +416,7 @@ public class Renderer {
     }
 
     //Draw a dialog box
-    public static void drawDialog(String[] messageLines, String buttonText, Tool acceptTool) {
+    public static void drawDialog(String[] messageLines, String buttonText) {
 
         int uiOffset    = 2 * (pixelScale);
         int uiOffsetY   = 10 * (pixelScale);
@@ -443,12 +442,12 @@ public class Renderer {
 
         int textCharOffset;
         for(int i = 0; i < messageLines.length; i++){
-            textCharOffset = 12 - Clamp(messageLines[i].length() / 2, 0, 12);
+            textCharOffset = 12 - clamp(messageLines[i].length() / 2, 0, 12);
             drawText(messageLines[i], uiOffset + (4 * pixelScale) + (textCharOffset * pixelScale), uiOffsetY + ((i + 2) * pixelScale), 1, false, Color.white, null);
         }
 
         //Draw button
-        int buttonTextCharOffset = 11 - Clamp(buttonText.length() / 2, 0, 11);
+        int buttonTextCharOffset = 11 - clamp(buttonText.length() / 2, 0, 11);
         uiOffset = (2 + buttonTextCharOffset) * pixelScale;
         uiOffsetY = 20 * pixelScale;
 
@@ -518,13 +517,13 @@ public class Renderer {
             //Draw fading color bar
             GL11.glBegin(GL11.GL_QUADS);
 
-            int noRed       = (int)Clamp(Palette[selectedColor].getRed() - editingColor.getRed(), 0, 255);
-            int noGreen     = (int)Clamp(Palette[selectedColor].getGreen() - editingColor.getGreen(), 0, 255);
-            int noBlue      = (int)Clamp(Palette[selectedColor].getBlue() - editingColor.getBlue(), 0, 255);
+            int noRed       = clamp(Palette[selectedColor].getRed() - editingColor.getRed(), 0, 255);
+            int noGreen     = clamp(Palette[selectedColor].getGreen() - editingColor.getGreen(), 0, 255);
+            int noBlue      = clamp(Palette[selectedColor].getBlue() - editingColor.getBlue(), 0, 255);
 
-            int maxRed      = (int)Clamp(Palette[selectedColor].getRed() + editingColor.getRed(), 0, 255);
-            int maxGreen    = (int)Clamp(Palette[selectedColor].getGreen() + editingColor.getGreen(), 0, 255);
-            int maxBlue     = (int)Clamp(Palette[selectedColor].getBlue() + editingColor.getBlue(), 0, 255);
+            int maxRed      = clamp(Palette[selectedColor].getRed() + editingColor.getRed(), 0, 255);
+            int maxGreen    = clamp(Palette[selectedColor].getGreen() + editingColor.getGreen(), 0, 255);
+            int maxBlue     = clamp(Palette[selectedColor].getBlue() + editingColor.getBlue(), 0, 255);
 
             GL11.glColor3ub((byte)noRed, (byte)noGreen, (byte)noBlue);
             {
@@ -682,30 +681,21 @@ public class Renderer {
         GLFW.glfwSwapBuffers(window);
     }
 
-
     //Utilities
-    public static float Clamp(float value, float min, float max){
+    public static float clamp(float value, float min, float max){
         if (value > max)
             return max;
-        if(value < min)
-            return min;
 
-        return value;
+        return Math.max(value, min);
+
     }
-    public static int Clamp(int value, int min, int max){
+    public static int clamp(int value, int min, int max){
         if (value > max)
             return max;
-        if(value < min)
-            return min;
+        return Math.max(value, min);
 
-        return value;
     }
-    public static Color subtractColor(Color a, Color b){
-        return new Color(
-                a.getRed()      - b.getRed(),
-                a.getGreen()    - b.getGreen(),
-                a.getBlue()     - b.getBlue());
-    }
+
     public static void abortWindowClose() {
         GLFW.glfwSetWindowShouldClose(window, false);
     }

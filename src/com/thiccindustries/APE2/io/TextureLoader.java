@@ -1,4 +1,4 @@
-/**This putrid texture loader was brought to you by me**/
+/*This putrid texture loader was brought to you by me**/
 
 package com.thiccindustries.APE2.io;
 
@@ -71,20 +71,19 @@ public class TextureLoader {
 
         int[] stitchedHDArray = stitchHDAPLayers(layeredPixelArray);
 
-        for(int i = 0; i < stitchedHDArray.length; i++){
-                if(stitchedHDArray[i] == -1){
-                    buffer.put((byte)0x00);
-                    buffer.put((byte)0x00);
-                    buffer.put((byte)0x00);
-                    buffer.put((byte)0x00);
-                }
-                else {
-                    buffer.put(palette[stitchedHDArray[i] * 3]);
-                    buffer.put(palette[stitchedHDArray[i] * 3 + 1]);
-                    buffer.put(palette[stitchedHDArray[i] * 3 + 2]);
-                    buffer.put((byte) 0xFF);
-                }
+        for (int value : stitchedHDArray) {
+            if (value == -1) {
+                buffer.put((byte) 0x00);
+                buffer.put((byte) 0x00);
+                buffer.put((byte) 0x00);
+                buffer.put((byte) 0x00);
+            } else {
+                buffer.put(palette[value * 3]);
+                buffer.put(palette[value * 3 + 1]);
+                buffer.put(palette[value * 3 + 2]);
+                buffer.put((byte) 0xFF);
             }
+        }
 
         buffer.flip();
 

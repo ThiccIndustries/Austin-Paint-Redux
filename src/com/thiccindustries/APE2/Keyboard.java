@@ -8,8 +8,8 @@ import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.glfw.GLFW.GLFW_RELEASE;
 
 public class Keyboard extends GLFWKeyCallback {
-    private static boolean[] keys = new boolean[GLFW_KEY_LAST + 1];
-    private static int[] actions = new int[GLFW_KEY_LAST + 1];
+    private static final boolean[] keys = new boolean[GLFW_KEY_LAST + 1];
+    private static final int[] actions = new int[GLFW_KEY_LAST + 1];
 
     @Override
     public void invoke(long window, int key, int scancode, int action, int mods){

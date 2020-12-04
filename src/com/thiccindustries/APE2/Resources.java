@@ -95,7 +95,7 @@ public class Resources {
 
         public String getName()     { return dspName; }
         public Boolean display()    { return display; }
-        public Tool getdisplayTool(){ return displayTool; }
+        public Tool getDisplayTool(){ return displayTool; }
         public Boolean loadCursor() { return hasCursor; }
     }
 }

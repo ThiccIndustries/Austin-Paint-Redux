@@ -192,16 +192,17 @@ public class FileManager {
             colorUnused = true;
             unusedColor = i;
             for(int x = 0; x < 32 && colorUnused; x++){
-                for(int y = 0; y < 32 && colorUnused; y++){
-                    if(pixelArray[x][y][layer] == i) {
+                for(int y = 0; y < 32; y++){
+                    if (pixelArray[x][y][layer] == i) {
                         colorUnused = false;
+                        break;
                     }
                 }
             }
         }
 
         //No unused colors
-        if(colorUnused == false) {
+        if(!colorUnused) {
             return -1;
         }
         else {
@@ -212,9 +213,11 @@ public class FileManager {
     private static boolean isLayerEmpty(int[][][] pixelArray, int layer){
         boolean empty = true;
         for(int x = 0; x < 32 && empty; x++){
-            for(int y = 0; y < 32 && empty; y++){
-                if(pixelArray[x][y][layer] != -1)
+            for(int y = 0; y < 32; y++){
+                if (pixelArray[x][y][layer] != -1) {
                     empty = false;
+                    break;
+                }
             }
         }
 
@@ -238,7 +241,7 @@ public class FileManager {
         System.arraycopy(defaultPalette, 0, fileLoaded.palette, 0, 16);
 
         File file = new File(filePath);
-        FileInputStream fis = null;
+        FileInputStream fis;
         byte[] rawPixelData = new byte[(int) file.length()];
 
 
@@ -297,7 +300,7 @@ public class FileManager {
                     activeLayers[(i * 2)] = true;
                     activeLayerTotal++;
                 }
-                if(bottomlayer == 1 && i != 4) {
+                if(bottomlayer == 1) {
                     activeLayers[(i * 2) + 1] = true;
                     activeLayerTotal++;
                 }
@@ -311,7 +314,7 @@ public class FileManager {
                 byte transparencyColor = rawPixelData[transColorOffset + i];
                 char topHalf = String.format("%02x", transparencyColor ).charAt(0);
                 transColors[i * 2] = Character.digit(topHalf, 16);
-                char bottomHalf = String.format("%02x", transparencyColor).charAt(1);;
+                char bottomHalf = String.format("%02x", transparencyColor).charAt(1);
                 transColors[i * 2 + 1] = Character.digit(bottomHalf, 16);
             }
             int layerPosOffset = 0;
@@ -352,7 +355,7 @@ public class FileManager {
                 byte transparencyColor = rawPixelData[transColorOffset + i];
                 char topHalf = String.format("%02x", transparencyColor ).charAt(0);
                 transColors[i * 2] = Character.digit(topHalf, 16);
-                char bottomHalf = String.format("%02x", transparencyColor).charAt(1);;
+                char bottomHalf = String.format("%02x", transparencyColor).charAt(1);
                 transColors[i * 2 + 1] = Character.digit(bottomHalf, 16);
             }
 
@@ -388,22 +391,6 @@ public class FileManager {
 
         int[][][] layeredPixelArray = new int[32][32][7];
 
-        boolean[] activeLayers = new boolean[7];
-        int activeLayerTotal = 0;
-        //Get active layers
-        for(int i = 0; i < 4; i++){
-            int toplayer = bytes[592 + i] >> 4;
-            int bottomlayer = bytes[592 + i] & 0x0F;
-            if(toplayer == 1){
-                activeLayers[(i * 2)] = true;
-                activeLayerTotal++;
-            }
-            if(bottomlayer == 1 && i != 4) {
-                activeLayers[(i * 2) + 1] = true;
-                activeLayerTotal++;
-            }
-        }
-
         int transColorOffset = (592 + (7 * 512));
         //Get transparency colors
         int[] transColors = new int[8];
@@ -411,7 +398,7 @@ public class FileManager {
             byte transparencyColor = bytes[transColorOffset + i];
             char topHalf = String.format("%02x", transparencyColor ).charAt(0);
             transColors[i * 2] = Character.digit(topHalf, 16);
-            char bottomHalf = String.format("%02x", transparencyColor).charAt(1);;
+            char bottomHalf = String.format("%02x", transparencyColor).charAt(1);
             transColors[i * 2 + 1] = Character.digit(bottomHalf, 16);
         }
 

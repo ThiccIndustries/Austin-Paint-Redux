@@ -25,6 +25,7 @@ public class Mouse extends GLFWMouseButtonCallback {
         return actions[button] == GLFW_PRESS;
     }
 
+    @SuppressWarnings("unused")
     public static boolean GetButtonUp(int button){
         return actions[button] == GLFW_RELEASE;
     }

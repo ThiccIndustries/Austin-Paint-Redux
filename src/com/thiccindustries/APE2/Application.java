@@ -97,11 +97,11 @@ public class Application {
             Renderer.drawSelection(curSelection);
 
             //Draw palette editing screen, this also occurs if the tool is txt_color
-            if(toolmode.getdisplayTool() == Tool.color)
+            if(toolmode.getDisplayTool() == Tool.color)
                 Renderer.drawColorSelection(bitmapColors, activeColor, toolmode == Tool.txt_color);
 
             if(toolmode == Tool.save_warn)
-                Renderer.drawDialog(new String[]{"Warning: unsaved changes", "press close again", "to exit."}, "Cancel", Tool.pencil);
+                Renderer.drawDialog(new String[]{"Warning: unsaved changes", "press close again", "to exit."}, "Cancel");
 
             //Draws debug screen
             if(drawDebug)
@@ -574,7 +574,7 @@ public class Application {
                     //Red
                     if (Renderer.mouseYPixel > 3 && Renderer.mouseYPixel < 8) {
                         float Red = (255f / 21f) * (Renderer.mouseXPixel - 7);
-                        int redint = (int)Renderer.Clamp(Red, 0, 255);
+                        int redint = (int)Renderer.clamp(Red, 0, 255);
 
                         int Green = bitmapColors[activeColor].getGreen();
                         int Blue = bitmapColors[activeColor].getBlue();
@@ -587,7 +587,7 @@ public class Application {
                         int Red = bitmapColors[activeColor].getRed();
 
                         float Green = (255f / 21f) * (Renderer.mouseXPixel - 7);
-                        int greenint = (int)Renderer.Clamp(Green, 0, 255);
+                        int greenint = (int)Renderer.clamp(Green, 0, 255);
 
                         int Blue = bitmapColors[activeColor].getBlue();
 
@@ -600,7 +600,7 @@ public class Application {
                         int Green = bitmapColors[activeColor].getGreen();
 
                         float Blue = (255f / 21f) * (Renderer.mouseXPixel - 7);
-                        int blueint = (int)Renderer.Clamp(Blue, 0, 255);
+                        int blueint = (int)Renderer.clamp(Blue, 0, 255);
 
                         bitmapColors[activeColor] = new Color(Red, Green, blueint);
                     }
