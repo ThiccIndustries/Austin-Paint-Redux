@@ -17,20 +17,16 @@ public class Application {
     private static int activeColor = 0;
 
     private static Selection curSelection;
-    private static int[][] clipboardBuffer;
 
-    private static boolean drawStacked = true;
-    private static boolean debugDraw = false;
-
-    private static boolean safeExit = true; //Save to exit without warning
+    private static boolean drawStacked  = true; //Draw all layers on top of each other
+    private static boolean drawDebug    = false;//Draw the debug screen
+    private static boolean safeExit     = true; //Safe to exit without a warning
 
     private static int lastClickX, lastClickY;
 
-    private static final LinkedList<UndoEntity> UndoStack = new LinkedList<>();
-
-    private static final LinkedList<UndoEntity> RedoStack = new LinkedList<>();
-
-
+    private static final LinkedList<UndoEntity> UndoBuffer = new LinkedList<>();
+    private static final LinkedList<UndoEntity> RedoBuffer = new LinkedList<>();
+    private static int[][] clipboardBuffer;
     private static String hexBuffer = "";
 
     private static Color[] bitmapColors = {
@@ -108,7 +104,7 @@ public class Application {
                 Renderer.drawDialog(new String[]{"Warning: unsaved changes", "press close again", "to exit."}, "Cancel", Tool.pencil);
 
             //Draws debug screen
-            if(debugDraw)
+            if(drawDebug)
                 Renderer.drawDebugInf(toolmode, bitmapColors, activeColor, activeLayer, safeExit);
 
             Renderer.drawUI(toolmode, bitmapColors, activeColor, activeLayer, Renderer.mouseXPixel < 2);
@@ -186,10 +182,10 @@ public class Application {
 
                 //Paste
                 UndoEntity ue = new UndoEntity();
-                UndoStack.addFirst(ue);
+                UndoBuffer.addFirst(ue);
                 safeExit = false;
 
-                RedoStack.clear();
+                RedoBuffer.clear();
 
                 for (int x = curSelection.x1; x <= curSelection.x2; x++) {
                     for (int y = curSelection.y1; y < curSelection.y2; y++) {
@@ -233,9 +229,9 @@ public class Application {
 
                 //Paste
                 UndoEntity ue = new UndoEntity();
-                UndoStack.addFirst(ue);
+                UndoBuffer.addFirst(ue);
                 safeExit = false;
-                RedoStack.clear();
+                RedoBuffer.clear();
                 for (int x = curSelection.x1; x <= curSelection.x2; x++) {
                     for (int y = curSelection.y1; y < curSelection.y2; y++) {
                         ue.AddPixel(x, y, activeLayer, layeredPixelArray[x][y][activeLayer]);
@@ -266,11 +262,11 @@ public class Application {
                 if(toolmode == Tool.pencil){
                     if(Mouse.GetButtonDown(GLFW.GLFW_MOUSE_BUTTON_1)){
                         UndoEntity newStroke = new UndoEntity();
-                        UndoStack.addFirst(newStroke);
-                        RedoStack.clear();
+                        UndoBuffer.addFirst(newStroke);
+                        RedoBuffer.clear();
                     }
                     if(Mouse.GetButton(GLFW.GLFW_MOUSE_BUTTON_1)) {
-                        UndoStack.getFirst().AddPixel(Renderer.mouseXPixel - 2, Renderer.mouseYPixel, activeLayer, layeredPixelArray[Renderer.mouseXPixel - 2][Renderer.mouseYPixel][activeLayer]);
+                        UndoBuffer.getFirst().AddPixel(Renderer.mouseXPixel - 2, Renderer.mouseYPixel, activeLayer, layeredPixelArray[Renderer.mouseXPixel - 2][Renderer.mouseYPixel][activeLayer]);
                         safeExit = false;
 
                         layeredPixelArray[Renderer.mouseXPixel - 2][Renderer.mouseYPixel][activeLayer] = activeColor;
@@ -281,11 +277,11 @@ public class Application {
                 if(toolmode == Tool.erase){
                     if(Mouse.GetButtonDown(GLFW.GLFW_MOUSE_BUTTON_1)){
                         UndoEntity newStroke = new UndoEntity();
-                       UndoStack.addFirst(newStroke);
-                        RedoStack.clear();
+                       UndoBuffer.addFirst(newStroke);
+                        RedoBuffer.clear();
                     }
                     if(Mouse.GetButton(GLFW.GLFW_MOUSE_BUTTON_1)) {
-                        UndoStack.getFirst().AddPixel(Renderer.mouseXPixel - 2, Renderer.mouseYPixel, activeLayer, layeredPixelArray[Renderer.mouseXPixel - 2][Renderer.mouseYPixel][activeLayer]);
+                        UndoBuffer.getFirst().AddPixel(Renderer.mouseXPixel - 2, Renderer.mouseYPixel, activeLayer, layeredPixelArray[Renderer.mouseXPixel - 2][Renderer.mouseYPixel][activeLayer]);
                         safeExit = false;
                         layeredPixelArray[Renderer.mouseXPixel - 2][Renderer.mouseYPixel][activeLayer] = -1;
                     }
@@ -299,11 +295,11 @@ public class Application {
                         //No finished selection
                         if(curSelection.selectionStage != 3) {
                             UndoEntity newStroke = new UndoEntity();
-                            UndoStack.addFirst(newStroke);
-                            RedoStack.clear();
+                            UndoBuffer.addFirst(newStroke);
+                            RedoBuffer.clear();
                             for (int y = 0; y < 32; y++) {
                                 for (int x = 0; x < 32; x++) {
-                                    UndoStack.getFirst().AddPixel(x, y, activeLayer, layeredPixelArray[x][y][activeLayer]);
+                                    UndoBuffer.getFirst().AddPixel(x, y, activeLayer, layeredPixelArray[x][y][activeLayer]);
                                 }
                             }
 
@@ -313,14 +309,14 @@ public class Application {
 
                         }else{
                             UndoEntity newStroke = new UndoEntity();
-                            UndoStack.addFirst(newStroke);
-                            RedoStack.clear();
+                            UndoBuffer.addFirst(newStroke);
+                            RedoBuffer.clear();
 
 
                             //Create undo object
                             for(int x = curSelection.x1; x <= curSelection.x2; x++){
                                 for(int y = curSelection.y1; y <= curSelection.y2; y++){
-                                    UndoStack.getFirst().AddPixel(x, y, activeLayer, layeredPixelArray[x][y][activeLayer]);
+                                    UndoBuffer.getFirst().AddPixel(x, y, activeLayer, layeredPixelArray[x][y][activeLayer]);
                                 }
                             }
 
@@ -421,8 +417,8 @@ public class Application {
                         lastClickX = Renderer.mouseXPixel - 2;
                         lastClickY = Renderer.mouseYPixel;
                         UndoEntity ue = new UndoEntity();
-                        UndoStack.addFirst(ue);
-                        RedoStack.clear();
+                        UndoBuffer.addFirst(ue);
+                        RedoBuffer.clear();
                     }
 
                     if(Mouse.GetButton(GLFW.GLFW_MOUSE_BUTTON_1)){
@@ -445,7 +441,7 @@ public class Application {
 
                                     if(layeredPixelArray[x][y][activeLayer] == -1)
                                         continue;
-                                    UndoStack.getFirst().AddPixel(x,y,activeLayer, layeredPixelArray[x][y][activeLayer]);
+                                    UndoBuffer.getFirst().AddPixel(x,y,activeLayer, layeredPixelArray[x][y][activeLayer]);
                                     clipboardBuffer[x][y] = layeredPixelArray[x][y][activeLayer];
                                     layeredPixelArray[x][y][activeLayer] = -1;
                                 }
@@ -460,7 +456,7 @@ public class Application {
 
                                     if(clipboardBuffer[x][y] == -1)
                                         continue;
-                                    UndoStack.getFirst().AddPixel(x + ((Renderer.mouseXPixel - 2) - lastClickX),y,activeLayer, layeredPixelArray[x + ((Renderer.mouseXPixel - 2) - lastClickX)][y][activeLayer]);
+                                    UndoBuffer.getFirst().AddPixel(x + ((Renderer.mouseXPixel - 2) - lastClickX),y,activeLayer, layeredPixelArray[x + ((Renderer.mouseXPixel - 2) - lastClickX)][y][activeLayer]);
                                     layeredPixelArray[x + ((Renderer.mouseXPixel - 2) - lastClickX)][y][activeLayer] = clipboardBuffer[x][y];
                                 }
                             }
@@ -496,7 +492,7 @@ public class Application {
 
                                     if(layeredPixelArray[x][y][activeLayer] == -1)
                                         continue;
-                                    UndoStack.getFirst().AddPixel(x,y,activeLayer, layeredPixelArray[x][y][activeLayer]);
+                                    UndoBuffer.getFirst().AddPixel(x,y,activeLayer, layeredPixelArray[x][y][activeLayer]);
                                     clipboardBuffer[x][y] = layeredPixelArray[x][y][activeLayer];
                                     layeredPixelArray[x][y][activeLayer] = -1;
                                 }
@@ -512,7 +508,7 @@ public class Application {
 
                                     if(clipboardBuffer[x][y] == -1)
                                         continue;
-                                    UndoStack.getFirst().AddPixel(x,y + (Renderer.mouseYPixel - lastClickY),activeLayer, layeredPixelArray[x][y + (Renderer.mouseYPixel - lastClickY)][activeLayer]);
+                                    UndoBuffer.getFirst().AddPixel(x,y + (Renderer.mouseYPixel - lastClickY),activeLayer, layeredPixelArray[x][y + (Renderer.mouseYPixel - lastClickY)][activeLayer]);
                                     layeredPixelArray[x][y + (Renderer.mouseYPixel - lastClickY)][activeLayer] = clipboardBuffer[x][y];
                                 }
                             }
@@ -553,8 +549,8 @@ public class Application {
                     }
                 }
             }
-            UndoStack.addFirst(ue);
-            RedoStack.clear();
+            UndoBuffer.addFirst(ue);
+            RedoBuffer.clear();
 
             for(int x = 0; x < 32; x ++){
                 for(int y = 0; y < 32; y++){
@@ -787,34 +783,34 @@ public class Application {
         //CTRL commands
         if(Keyboard.GetKey(GLFW.GLFW_KEY_LEFT_CONTROL)){
             //undo
-            if(Keyboard.GetKeyDown(GLFW.GLFW_KEY_Z) && UndoStack.size() > 0){
+            if(Keyboard.GetKeyDown(GLFW.GLFW_KEY_Z) && UndoBuffer.size() > 0){
                 safeExit = false;
 
-                UndoEntity ue = UndoStack.getFirst();
+                UndoEntity ue = UndoBuffer.getFirst();
                 UndoEntity re = new UndoEntity();
 
                 for(UndoEntity.Pixel2i i : ue.pixelChanges) {
                     re.AddPixel(i.x, i.y, i.layer, layeredPixelArray[i.x][i.y][i.layer]);
                 }
-                RedoStack.addFirst(re);
+                RedoBuffer.addFirst(re);
 
                 for(UndoEntity.Pixel2i i : ue.pixelChanges){
                     layeredPixelArray[i.x][i.y][i.layer] = i.colorIndex;
                 }
-                UndoStack.removeFirst();
+                UndoBuffer.removeFirst();
             }
 
             //redo
-            if(Keyboard.GetKeyDown(GLFW.GLFW_KEY_Y) && RedoStack.size() > 0){
+            if(Keyboard.GetKeyDown(GLFW.GLFW_KEY_Y) && RedoBuffer.size() > 0){
                 safeExit = false;
 
-                UndoEntity re = RedoStack.getFirst();
+                UndoEntity re = RedoBuffer.getFirst();
                 UndoEntity ue = new UndoEntity();
 
                 for(UndoEntity.Pixel2i i : re.pixelChanges) {
                     ue.AddPixel(i.x, i.y, i.layer, layeredPixelArray[i.x][i.y][i.layer]);
                 }
-                UndoStack.addFirst(ue);
+                UndoBuffer.addFirst(ue);
 
 
 
@@ -822,7 +818,7 @@ public class Application {
                     layeredPixelArray[i.x][i.y][i.layer] = i.colorIndex;
                 }
 
-                RedoStack.removeFirst();
+                RedoBuffer.removeFirst();
             }
 
             //cut
@@ -837,8 +833,8 @@ public class Application {
                 }
 
                 UndoEntity ue = new UndoEntity();
-                UndoStack.addFirst(ue);
-                RedoStack.clear();
+                UndoBuffer.addFirst(ue);
+                RedoBuffer.clear();
 
                 for(int x = curSelection.x1; x <= curSelection.x2; x++){
                     for(int y = curSelection.y1; y <= curSelection.y2; y++){
@@ -877,8 +873,8 @@ public class Application {
                 safeExit = false;
 
                 UndoEntity ue = new UndoEntity();
-                UndoStack.addFirst(ue);
-                RedoStack.clear();
+                UndoBuffer.addFirst(ue);
+                RedoBuffer.clear();
 
                 for(int x = 0; x < 32; x++){
                     for(int y = 0; y < 32; y++){
@@ -905,7 +901,7 @@ public class Application {
 
         //Enable debug
         if(Keyboard.GetKeyDown(GLFW.GLFW_KEY_F3)){
-            debugDraw = !debugDraw;
+            drawDebug = !drawDebug;
         }
     }
 
@@ -925,6 +921,8 @@ public class Application {
         return hexChars.indexOf(getActiveKey) != -1;
     }
 
+
+    //Recursion is scary but stackoverflow has spoken
     private static void floodFill(int[][][] layeredPixelArray, int affectedLayer, Selection curSelection, boolean useSelectionBounds, int x, int y, int targetColorIndex, int colorIndex){
         int maxX = useSelectionBounds ? curSelection.x2 : 31;
         int minX = useSelectionBounds ? curSelection.x1 : 0;
