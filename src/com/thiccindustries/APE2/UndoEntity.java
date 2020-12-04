@@ -9,7 +9,7 @@ public class UndoEntity {
         pixelChanges.addFirst(new Pixel2i(x, y, layer, colorIndex));
     }
 
-    public class Pixel2i{
+    public static class Pixel2i{
         public int x;
         public int y;
         public int layer;

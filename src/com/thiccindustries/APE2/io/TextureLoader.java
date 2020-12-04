@@ -1,4 +1,4 @@
-/**This putrid texture loader was brought to you by Thicc Industries!**/
+/**This putrid texture loader was brought to you by me**/
 
 package com.thiccindustries.APE2.io;
 

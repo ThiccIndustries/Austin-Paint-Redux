@@ -2,10 +2,9 @@ package com.thiccindustries.APE2.io;
 
 import java.awt.*;
 import java.io.*;
-import java.lang.reflect.Array;
 
 public class FileManager {
-    private static final Color[] defaultPalette = { //TODO: add palettes
+    private static final Color[] defaultPalette = {
             new Color(0, 0, 0),
             new Color(63,63,63),
             new Color(127,127,127),
@@ -28,12 +27,12 @@ public class FileManager {
     public static void saveFileFromImage(String filePath, int[][][] pixelArray, Color[] palette){
         File fileToSave = new File(filePath);
 
-        FileOutputStream fos = null;
+        FileOutputStream fos;
 
-        /**Doing this with a hex string is EXTREMELY dumb, but I dont care**/
+        /*Doing this with a hex string is EXTREMELY dumb, but I dont care*/
         StringBuilder sb = new StringBuilder();
 
-        /**Really austin?**/
+        /*Really austin?*/
         sb.append("41555354494E5041494E540056322E30"); // "AUSTIN.PAINT.v2.0"
 
         //Add palette information
@@ -41,7 +40,9 @@ public class FileManager {
             int r = palette[i].getRed();
             int g = palette[i].getGreen();
             int b = palette[i].getBlue();
-            sb.append(String.format("%02X", r) + "" + String.format("%02X", g) + "" + String.format("%02X", b));
+            sb.append(String.format("%02X", r))
+              .append(String.format("%02X", g))
+              .append(String.format("%02X", b));
         }
 
         //Add legacy AP2 pixel array for APE and austin paint 2
@@ -61,12 +62,13 @@ public class FileManager {
 
         for(int y = 0; y < 32; y++) {
             for (int x = 0; x < 16; x++) {
-                sb.append(Integer.toHexString(flatPixelArray[x * 2][y]) + Integer.toHexString(flatPixelArray[(x * 2) + 1][y]));
+                sb.append(Integer.toHexString(flatPixelArray[x * 2][y]))
+                  .append(Integer.toHexString(flatPixelArray[(x * 2) + 1][y]));
             }
         }
 
        // APR header
-        sb.append("2E415041494E542E2E52454455582E2E"); // ".APAINT..REDUX.."
+        sb.append("2E415041494E542E2E52454455582E2E"); // Austin did it so im allowed to do it as well. The best part is that I don't even test for it.
 
         int[] unusedColors = new int[7];
         boolean[] layerEmpty = new boolean[7];
@@ -101,7 +103,8 @@ public class FileManager {
                     if(_pixelArray[(x * 2) + 1][y][i] == -1)
                         _pixelArray[(x * 2) + 1][y][i] = unusedColors[i];
 
-                    sb.append(Integer.toHexString(_pixelArray[x * 2][y][i]) + Integer.toHexString(_pixelArray[(x * 2) + 1][y][i]));
+                    sb.append(Integer.toHexString(_pixelArray[x * 2][y][i]))
+                      .append(Integer.toHexString(_pixelArray[(x * 2) + 1][y][i]));
                }
             }
         }
@@ -112,7 +115,7 @@ public class FileManager {
         }
 
         sb.append("F");
-        /**Why does StringBuilder even need a function to do this, why can i not just cast it**/
+        /*Why does StringBuilder even need a function to do this, why can i not just cast it*/
 
         String hexDump = sb.toString();
 
@@ -125,7 +128,7 @@ public class FileManager {
         }
         try {
             //Write file
-            fileToSave.createNewFile();
+            fileToSave.createNewFile(); //I dont care what intellij says, it doesn't work if i dont add this.
             fos = new FileOutputStream(fileToSave);
             fos.write(rawPixelData);
             fos.close();
@@ -147,12 +150,15 @@ public class FileManager {
             int g = palette[i].getGreen();
             int r = palette[i].getRed();
 
-            sb.append(String.format("%02X", b) + "" + String.format("%02X", g) + "" + String.format("%02X", r) + "FF");
+            sb.append(String.format("%02X", b))
+              .append(String.format("%02X", g))
+              .append(String.format("%02X", r)).append("FF");
         }
 
         for(int y = 31; y >= 0; y--){
             for(int x = 0; x < 16; x++){
-                sb.append(Integer.toHexString(flatPixelArray[x * 2][y]) + Integer.toHexString(flatPixelArray[(x * 2) + 1][y]));
+                sb.append(Integer.toHexString(flatPixelArray[x * 2][y]))
+                  .append(Integer.toHexString(flatPixelArray[(x * 2) + 1][y]));
             }
         }
 
@@ -172,8 +178,6 @@ public class FileManager {
             fos = new FileOutputStream(file);
             fos.write(byteData);
             fos.close();
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -231,7 +235,6 @@ public class FileManager {
         }
 
         //Create a local copy of the palette to prevent destructive changes
-        /**yes, this causes a memory leak**/
         System.arraycopy(defaultPalette, 0, fileLoaded.palette, 0, 16);
 
         File file = new File(filePath);
@@ -241,7 +244,7 @@ public class FileManager {
 
         try {
             fis = new FileInputStream(file);
-            fis.read(rawPixelData);
+            fis.read(rawPixelData); //No its literally not.
             fis.close();
         } catch (FileNotFoundException e) {
             System.err.print("File did not exist.");
@@ -264,7 +267,7 @@ public class FileManager {
                     }
                 }
             }
-            /**Converting from Byte -> Char -> Int is probably the dumbest thing ive ever done but it works**/
+            /*Converting from Byte -> Char -> Int is probably the dumbest thing ive ever done but it works*/
             for (int y = 0; y < 32; y++) {
                 for (int x = 0; x < 16; x++) {
                     Byte currentByte = rawPixelData[x + (y * 16) + 64];
@@ -313,7 +316,7 @@ public class FileManager {
             }
             int layerPosOffset = 0;
             for(int i = 0; i < 7; i++){
-                if(activeLayers[i] == false){
+                if(!activeLayers[i]){
                     continue;
                 }
                 for (int y = 0; y < 32; y++) {

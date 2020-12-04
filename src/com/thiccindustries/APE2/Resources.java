@@ -65,18 +65,21 @@ public class Resources {
         open        ("Open Image"),
 
         //Internal Tools
-        txt_color   (color, true),
-        save_warn   (pencil, false),
-        pencil_wait (pencil, true);
+        txt_color   (color, true),      //Hex value tool
+        lock_save   (save, false),      //Lock window while save is open
+        lock_export (export, false),    //Lock window while export is open
+        lock_open   (open, false),      //Lock window while open is open
+        save_warn   (pencil, false),    //Warn the user if exiting w/o saving
+        pencil_wait (pencil, true);     //Wait for a new mouse press to begin pencil tool (After closing dialog)
 
-        private final String    name;       //The display name of this tool
+        private final String    dspName;       //The display name of this tool
         private final Boolean   display;    //True if tool should be displayed on the toolbar
         private final Boolean   hasCursor;  //True if a custom cursor texture needs to be loaded
         private final Tool      displayTool;//What tool is highlighted when selected. For visible tools, this is a self reference.
 
         //Constructor for a toolbar tool
         Tool(String name){
-            this.name           = name;
+            this.dspName        = name;
             this.display        = true;
             this.displayTool    = this;
             this.hasCursor      = true;
@@ -84,13 +87,13 @@ public class Resources {
 
         //Constructor for internal tools
         Tool(Tool displayTool, boolean hasCursor){
-            this.name           = "missingno.";
+            this.dspName          = "missingno.";
             this.display        = false;
             this.displayTool    = displayTool;
             this.hasCursor      = hasCursor;
         }
 
-        public String getName()     { return name; }
+        public String getName()     { return dspName; }
         public Boolean display()    { return display; }
         public Tool getdisplayTool(){ return displayTool; }
         public Boolean loadCursor() { return hasCursor; }

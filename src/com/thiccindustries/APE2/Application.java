@@ -124,6 +124,10 @@ public class Application {
     }
 
     private static void Actions() {
+        //Prevent any actions until file dialog is closed
+        if(toolmode == Tool.lock_save || toolmode == Tool.lock_export || toolmode == Tool.lock_open)
+            return;
+
         //Require another mouse click before acting as a pencil (Pencil_wait)
         if(toolmode == Tool.pencil_wait && Mouse.GetButtonDown(GLFW.GLFW_MOUSE_BUTTON_1)){
             toolmode = Tool.pencil;
@@ -138,13 +142,10 @@ public class Application {
                 if(selectedToolOrdinal >= Tool.values().length)
                     selectedToolOrdinal = Tool.values().length - 1;
 
+                if(!Tool.values()[selectedToolOrdinal].display())
+                    selectedToolOrdinal = toolmode.ordinal();
+
                 toolmode = Tool.values()[selectedToolOrdinal];
-
-
-
-                //Prevent user from selecting the hidden text tool
-                if(toolmode == Tool.txt_color)
-                    toolmode = Tool.pencil;
             }
         }
 
@@ -620,7 +621,7 @@ public class Application {
             }
 
             EventQueue.invokeLater(() -> {
-
+                toolmode = Tool.lock_save;
                 JFileChooser fileChooser = new JFileChooser();
 
                 //Prevent dumbness
@@ -651,9 +652,8 @@ public class Application {
                         safeExit = true;
                     }
                 }catch(Exception ignored){}
+                toolmode = Tool.pencil;
             });
-
-            toolmode = Tool.pencil;
         }
 
         //Export
@@ -665,6 +665,8 @@ public class Application {
             }
 
             EventQueue.invokeLater(() -> {
+                toolmode = Tool.lock_export;
+
                 JFileChooser fileChooser = new JFileChooser();
 
                 //Prevent dumbness
@@ -692,9 +694,8 @@ public class Application {
                         FileManager.saveBMPFromImage(path, layeredPixelArray, bitmapColors);
                     }
                 }catch(NullPointerException ignored){}
+                toolmode = Tool.pencil;
             });
-
-            toolmode = Tool.pencil;
         }
 
         //Open
@@ -706,6 +707,7 @@ public class Application {
             }
 
             EventQueue.invokeLater(() -> {
+                toolmode = Tool.lock_open;
                 JFileChooser fileChooser = new JFileChooser();
 
                 //Prevent dumbness
@@ -729,8 +731,8 @@ public class Application {
                     layeredPixelArray = apfile.pixelArray;
                     bitmapColors = apfile.palette;
                 }
+                toolmode = Tool.pencil;
             });
-            toolmode = Tool.pencil;
         }
 
         //Text Entry Tool (Internal)
