@@ -1,4 +1,4 @@
-package com.thiccindustries.APE2.io;
+package com.thiccindustries.APE2;
 
 import java.awt.*;
 import java.io.*;
@@ -386,47 +386,7 @@ public class FileManager {
         return fileLoaded;
     }
 
-    /*This only supports compressed AP2 files*/
-    public static int[][][] extractPixelArray(byte[] bytes) throws ArrayIndexOutOfBoundsException {
 
-        int[][][] layeredPixelArray = new int[32][32][7];
-
-        int transColorOffset = (592 + (7 * 512));
-        //Get transparency colors
-        int[] transColors = new int[8];
-        for(int i = 0; i < 4; i++){
-            byte transparencyColor = bytes[transColorOffset + i];
-            char topHalf = String.format("%02x", transparencyColor ).charAt(0);
-            transColors[i * 2] = Character.digit(topHalf, 16);
-            char bottomHalf = String.format("%02x", transparencyColor).charAt(1);
-            transColors[i * 2 + 1] = Character.digit(bottomHalf, 16);
-        }
-
-        int layerPosOffset = 0;
-        for(int i = 0; i < 7; i++){
-            for (int y = 0; y < 32; y++) {
-                for (int x = 0; x < 16; x++) {
-                    Byte currentByte = bytes[x + (y * 16) + 592 + 4 + layerPosOffset];
-                    char firstPixelHexChar = String.format("%02x", currentByte).charAt(0);
-                    char secondPixelHexChar = String.format("%02x", currentByte).charAt(1);
-                    layeredPixelArray[x * 2][y][i]     = Character.digit(firstPixelHexChar, 16);
-                    layeredPixelArray[x * 2 + 1][y][i] = Character.digit(secondPixelHexChar, 16);
-
-                    if(layeredPixelArray[x * 2][y][i] == transColors[i]){
-                        layeredPixelArray[x * 2][y][i] = -1;
-                    }
-
-                    if(layeredPixelArray[x * 2 + 1][y][i] == transColors[i]){
-                        layeredPixelArray[x * 2 + 1][y][i] = -1;
-                    }
-                }
-            }
-            layerPosOffset+=512;
-        }
-
-        return layeredPixelArray;
-
-    }
 
     //Flattens the Austin Paint Redux layered image into an array that can be read by APE / AP2
     public static int[][] flattenAPImage(int[][][] layeredArray){

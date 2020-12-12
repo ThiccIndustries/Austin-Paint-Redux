@@ -1,5 +1,6 @@
 package com.thiccindustries.APE2;
-import com.thiccindustries.APE2.io.*;
+import com.thiccindustries.TLib.*;
+
 import org.apache.commons.lang.ArrayUtils;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.glfw.GLFW;
@@ -63,7 +64,7 @@ public class Renderer {
 
         //Set window icon
         try {
-            ByteBuffer iconBuffer = TextureLoader.loadTextureBytesAP("/res/icon.ap2");
+            ByteBuffer iconBuffer = APTextureLoader.loadTextureByteBuffer("/res/icon.ap2");
             GLFWImage.Buffer icons = GLFWImage.malloc(1);
 
             icons
@@ -442,12 +443,12 @@ public class Renderer {
 
         int textCharOffset;
         for(int i = 0; i < messageLines.length; i++){
-            textCharOffset = 12 - clamp(messageLines[i].length() / 2, 0, 12);
+            textCharOffset = 12 - TUtils.clamp(messageLines[i].length() / 2, 0, 12);
             drawText(messageLines[i], uiOffset + (4 * pixelScale) + (textCharOffset * pixelScale), uiOffsetY + ((i + 2) * pixelScale), 1, false, Color.white, null);
         }
 
         //Draw button
-        int buttonTextCharOffset = 11 - clamp(buttonText.length() / 2, 0, 11);
+        int buttonTextCharOffset = 11 - TUtils.clamp(buttonText.length() / 2, 0, 11);
         uiOffset = (2 + buttonTextCharOffset) * pixelScale;
         uiOffsetY = 20 * pixelScale;
 
@@ -517,13 +518,13 @@ public class Renderer {
             //Draw fading color bar
             GL11.glBegin(GL11.GL_QUADS);
 
-            int noRed       = clamp(Palette[selectedColor].getRed() - editingColor.getRed(), 0, 255);
-            int noGreen     = clamp(Palette[selectedColor].getGreen() - editingColor.getGreen(), 0, 255);
-            int noBlue      = clamp(Palette[selectedColor].getBlue() - editingColor.getBlue(), 0, 255);
+            int noRed       = TUtils.clamp(Palette[selectedColor].getRed() - editingColor.getRed(), 0, 255);
+            int noGreen     = TUtils.clamp(Palette[selectedColor].getGreen() - editingColor.getGreen(), 0, 255);
+            int noBlue      = TUtils.clamp(Palette[selectedColor].getBlue() - editingColor.getBlue(), 0, 255);
 
-            int maxRed      = clamp(Palette[selectedColor].getRed() + editingColor.getRed(), 0, 255);
-            int maxGreen    = clamp(Palette[selectedColor].getGreen() + editingColor.getGreen(), 0, 255);
-            int maxBlue     = clamp(Palette[selectedColor].getBlue() + editingColor.getBlue(), 0, 255);
+            int maxRed      = TUtils.clamp(Palette[selectedColor].getRed() + editingColor.getRed(), 0, 255);
+            int maxGreen    = TUtils.clamp(Palette[selectedColor].getGreen() + editingColor.getGreen(), 0, 255);
+            int maxBlue     = TUtils.clamp(Palette[selectedColor].getBlue() + editingColor.getBlue(), 0, 255);
 
             GL11.glColor3ub((byte)noRed, (byte)noGreen, (byte)noBlue);
             {
@@ -679,21 +680,6 @@ public class Renderer {
         }
 
         GLFW.glfwSwapBuffers(window);
-    }
-
-    //Utilities
-    public static float clamp(float value, float min, float max){
-        if (value > max)
-            return max;
-
-        return Math.max(value, min);
-
-    }
-    public static int clamp(int value, int min, int max){
-        if (value > max)
-            return max;
-        return Math.max(value, min);
-
     }
 
     public static void abortWindowClose() {

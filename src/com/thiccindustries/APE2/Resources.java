@@ -1,9 +1,7 @@
 package com.thiccindustries.APE2;
 
-import com.thiccindustries.APE2.io.Texture;
-import com.thiccindustries.APE2.io.TextureLoader;
-
 import java.io.IOException;
+import com.thiccindustries.TLib.*;
 
 public class Resources {
 
@@ -17,12 +15,12 @@ public class Resources {
     public static void InitResources(){
         Texture fallbackTexture = null;
         try{
-            fallbackTexture = TextureLoader.loadTextureAPNoFallback("/res/fallback.ap2");
+            fallbackTexture = APTextureLoader.loadTextureNoFallback("/res/fallback.ap2");
         } catch (IOException e) {
             e.printStackTrace();
         }
 
-        uiCursor = TextureLoader.loadTextureAP("/res/ui/cursor.ap2", fallbackTexture);
+        uiCursor = APTextureLoader.loadTexture("/res/ui/cursor.ap2", fallbackTexture);
 
         //Load Tool Cursors
         cursorTextures = new Texture[Tool.values().length];
@@ -30,7 +28,7 @@ public class Resources {
         for(int tool = 0; tool < cursorTextures.length; tool++) {
 
             if(Tool.values()[tool].loadCursor())
-                cursorTextures[tool] = TextureLoader.loadTextureAP("/res/tools/" + Tool.values()[tool].toString() + ".ap2", fallbackTexture);
+                cursorTextures[tool] = APTextureLoader.loadTexture("/res/tools/" + Tool.values()[tool].toString() + ".ap2", fallbackTexture);
             else
                 cursorTextures[tool] = uiCursor;
 
@@ -39,9 +37,9 @@ public class Resources {
 
         fontIndices             = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!\"#$%&'()*+,-./:;<=>?@[\\]^_ {|}~0123456789";
 
-        font                    = TextureLoader.loadTextureHDAP("/res/ui/font.ap2", fallbackTexture);
-        layerBackground         = TextureLoader.loadTextureAP("/res/ui/layerbg_deselected.ap2", fallbackTexture);
-        layerBackground_active  = TextureLoader.loadTextureAP("/res/ui/layerbg_selected.ap2", fallbackTexture);
+        font                    = APTextureLoader.loadHDTexture("/res/ui/font.ap2", fallbackTexture);
+        layerBackground         = APTextureLoader.loadTexture("/res/ui/layerbg_deselected.ap2", fallbackTexture);
+        layerBackground_active  = APTextureLoader.loadTexture("/res/ui/layerbg_selected.ap2", fallbackTexture);
 
 
     }
@@ -72,7 +70,7 @@ public class Resources {
         save_warn   (pencil, false),    //Warn the user if exiting w/o saving
         pencil_wait (pencil, true);     //Wait for a new mouse press to begin pencil tool (After closing dialog)
 
-        private final String    dspName;       //The display name of this tool
+        private final String    dspName;    //The display name of this tool
         private final Boolean   display;    //True if tool should be displayed on the toolbar
         private final Boolean   hasCursor;  //True if a custom cursor texture needs to be loaded
         private final Tool      displayTool;//What tool is highlighted when selected. For visible tools, this is a self reference.
@@ -87,7 +85,7 @@ public class Resources {
 
         //Constructor for internal tools
         Tool(Tool displayTool, boolean hasCursor){
-            this.dspName          = "missingno.";
+            this.dspName        = "missingno.";
             this.display        = false;
             this.displayTool    = displayTool;
             this.hasCursor      = hasCursor;

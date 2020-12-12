@@ -1,5 +1,5 @@
 package com.thiccindustries.APE2;
-import com.thiccindustries.APE2.io.FileManager;
+import com.thiccindustries.TLib.*;
 
 import javax.swing.*;
 import javax.swing.filechooser.FileFilter;
@@ -7,6 +7,8 @@ import org.lwjgl.glfw.GLFW;
 import java.awt.*;
 import java.io.File;
 import java.util.LinkedList;
+
+
 
 import static com.thiccindustries.APE2.Resources.*;
 
@@ -71,7 +73,7 @@ public class Application {
 
         Renderer.initGLFWAndCreateWindow(1);
 
-        Resources.InitResources();
+        InitResources();
         
         curSelection = new Selection();
 
@@ -574,7 +576,7 @@ public class Application {
                     //Red
                     if (Renderer.mouseYPixel > 3 && Renderer.mouseYPixel < 8) {
                         float Red = (255f / 21f) * (Renderer.mouseXPixel - 7);
-                        int redint = (int)Renderer.clamp(Red, 0, 255);
+                        int redint = (int)TUtils.clamp(Red, 0, 255);
 
                         int Green = bitmapColors[activeColor].getGreen();
                         int Blue = bitmapColors[activeColor].getBlue();
@@ -587,7 +589,7 @@ public class Application {
                         int Red = bitmapColors[activeColor].getRed();
 
                         float Green = (255f / 21f) * (Renderer.mouseXPixel - 7);
-                        int greenint = (int)Renderer.clamp(Green, 0, 255);
+                        int greenint = (int)TUtils.clamp(Green, 0, 255);
 
                         int Blue = bitmapColors[activeColor].getBlue();
 
@@ -600,7 +602,7 @@ public class Application {
                         int Green = bitmapColors[activeColor].getGreen();
 
                         float Blue = (255f / 21f) * (Renderer.mouseXPixel - 7);
-                        int blueint = (int)Renderer.clamp(Blue, 0, 255);
+                        int blueint = (int)TUtils.clamp(Blue, 0, 255);
 
                         bitmapColors[activeColor] = new Color(Red, Green, blueint);
                     }
@@ -734,7 +736,7 @@ public class Application {
         //Text Entry Tool (Internal)
         if(toolmode == Tool.txt_color){
             int activekey = Keyboard.GetAnyKey();
-            if(activekey != -1 && IsCharValidHex((char)activekey)) {
+            if(activekey != -1 && TUtils.isHexChar((char)activekey)) {
 
                 if (hexBuffer.length() >= 6) {
                     hexBuffer = "";
@@ -916,11 +918,6 @@ public class Application {
         return newBuffer;
     }
 
-    private static boolean IsCharValidHex(char getActiveKey) {
-        final String hexChars = "ABDCEF1234567890";
-        return hexChars.indexOf(getActiveKey) != -1;
-    }
-
 
     //Recursion is scary but stackoverflow has spoken
     private static void floodFill(int[][][] layeredPixelArray, int affectedLayer, Selection curSelection, boolean useSelectionBounds, int x, int y, int targetColorIndex, int colorIndex){
@@ -930,12 +927,15 @@ public class Application {
         int maxY = useSelectionBounds ? curSelection.y2 : 31;
         int minY = useSelectionBounds ? curSelection.y1 : 0;
 
+        //Attempted change is out of bounds, or has already been replaced
         if((x > maxX || x < minX) || (y > maxY || y < minY) || layeredPixelArray[x][y][affectedLayer] == colorIndex)
             return;
 
+        //Attempted change doesn't match the target color
         if(layeredPixelArray[x][y][affectedLayer] != targetColorIndex)
             return;
 
+        //Set new color
         layeredPixelArray[x][y][affectedLayer] = colorIndex;
 
         //Spread in the 4 directions
