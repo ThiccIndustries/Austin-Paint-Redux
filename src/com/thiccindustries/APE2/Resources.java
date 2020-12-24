@@ -1,5 +1,6 @@
 package com.thiccindustries.APE2;
 
+import java.awt.*;
 import java.io.IOException;
 import com.thiccindustries.TLib.*;
 
@@ -43,7 +44,6 @@ public class Resources {
 
 
     }
-
 
     public enum Tool{
 
@@ -96,4 +96,6 @@ public class Resources {
         public Tool getDisplayTool(){ return displayTool; }
         public Boolean loadCursor() { return hasCursor; }
     }
+
+
 }

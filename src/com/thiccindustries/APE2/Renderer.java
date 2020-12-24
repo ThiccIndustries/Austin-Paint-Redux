@@ -14,6 +14,7 @@ import java.nio.DoubleBuffer;
 import java.text.DecimalFormat;
 
 import static com.thiccindustries.APE2.Resources.*;
+import static org.lwjgl.opengl.GL11.*;
 
 public class Renderer {
     public static double mouseX, mouseY;
@@ -27,6 +28,8 @@ public class Renderer {
     private static int FPS = 0;
     private static boolean CURSOR_BLINK;
     private static int cycle = 0;
+
+    private static final Texture[] layerTextures = new Texture[7];
 
     public static void initGLFWAndCreateWindow(int windowScale){
         pixelScale = 16 * windowScale;
@@ -78,6 +81,7 @@ public class Renderer {
         }catch(IOException e){
             System.err.println("Failed to set window icon");
         }
+
     }
 
     @SuppressWarnings("unused")
@@ -99,61 +103,63 @@ public class Renderer {
     public static void drawBitmapLayers(int [][][] bitmaps, Color[] bitmapColors, boolean allLayers, int layerToDraw){
         //Only draw active layers, as the rest would just waste time, and aren't visible in the ui
         for(int layer = 0; layer < 7; layer++){
-            for(int y = 0; y < 32; y++){
-                for(int x = 0; x < 32; x++){
+            if(!allLayers && layer != layerToDraw)
+                continue;
 
-                    if(!allLayers && layer != layerToDraw)
-                        continue;
+            if(layerTextures[layer] == null)
+                layerTextures[layer] = createAPTexture(bitmapColors, bitmaps, layer);
+            else
+                updateAPTexture(layerTextures[layer], bitmapColors, bitmaps, layer);
 
-                    //Draw pixel
-                    if(bitmaps[x][y][layer] == -1) {
-                        GL11.glColor3f(0, 0, 0);
-                        if(layer != 0 && allLayers){
-                            continue;
-                        }
-                    }else {
-                        GL11.glColor3ub((byte) bitmapColors[bitmaps[x][y][layer]].getRed(), (byte) bitmapColors[bitmaps[x][y][layer]].getGreen(), (byte) bitmapColors[bitmaps[x][y][layer]].getBlue());
-                    }
+            //Disable transparency if first layer or only one layer being drawn
+            if(layer == 0 || !allLayers)
+                GL11.glDisable(GL11.GL_BLEND);
+            else
+                GL11.glEnable(GL11.GL_BLEND);
 
-                    GL11.glBegin(GL11.GL_QUADS);
-                    {
-                        GL11.glVertex2i((8 * uiScale) + x * pixelScale,              y * pixelScale);
-                        GL11.glVertex2i((8 * uiScale) + x * pixelScale + pixelScale, y * pixelScale);
-                        GL11.glVertex2i((8 * uiScale) + x * pixelScale + pixelScale, y * pixelScale + pixelScale);
-                        GL11.glVertex2i((8 * uiScale) + x * pixelScale,              y * pixelScale + pixelScale);
-                    }
-                    GL11.glEnd();
-                }
+            GL11.glEnable(GL11.GL_TEXTURE_2D);
+
+            layerTextures[layer].Bind(0);
+            GL11.glBegin(GL_QUADS);
+            {
+                GL11.glTexCoord2i(0,0); GL11.glVertex2i((8 * uiScale),                      0);
+                GL11.glTexCoord2i(1,0); GL11.glVertex2i((8 * uiScale) + (32 * pixelScale),  0);
+                GL11.glTexCoord2i(1,1); GL11.glVertex2i((8 * uiScale) + (32 * pixelScale),  (32 * pixelScale));
+                GL11.glTexCoord2i(0,1); GL11.glVertex2i((8 * uiScale),                      (32 * pixelScale));
+
             }
-
+            GL11.glEnd();
+            GL11.glDisable(GL11.GL_TEXTURE_2D);
         }
+
+        GL11.glEnable(GL11.GL_BLEND);
     }
 
     public static void drawBitmapLayersSplit(int [][][] bitmaps, Color[] bitmapColors){
-        //Only draw active layers, as the rest would just waste time, and aren't visible in the ui
+        GL11.glDisable(GL11.GL_BLEND);
+        GL11.glEnable(GL11.GL_TEXTURE_2D);
         for(int layer = 0; layer < 7; layer++){
             int uioffsetX = (9 * uiScale) + (32 * pixelScale);
             int uioffsetY = (18 * uiScale) * (6 - layer) + uiScale;
-            for(int y = 0; y < 32; y++){
-                for(int x = 0; x < 32; x++){
-                    //Draw pixel
-                    if(bitmaps[x][y][layer] == -1) {
-                        GL11.glColor3f(0, 0, 0);
-                    }else {
-                        GL11.glColor3ub((byte) bitmapColors[bitmaps[x][y][layer]].getRed(), (byte) bitmapColors[bitmaps[x][y][layer]].getGreen(), (byte) bitmapColors[bitmaps[x][y][layer]].getBlue());
-                    }
-                    GL11.glBegin(GL11.GL_QUADS);
-                    {
-                        GL11.glVertex2i(uioffsetX + (x * 2 * rawScale),                     uioffsetY + (y * (2 * rawScale)));
-                        GL11.glVertex2i(uioffsetX + (x * 2 * rawScale) + (2 * rawScale),    uioffsetY + (y * (2 * rawScale)));
-                        GL11.glVertex2i(uioffsetX + (x * 2 * rawScale) + (2 * rawScale),    uioffsetY + (y * (2 * rawScale)) + (2 * rawScale));
-                        GL11.glVertex2i(uioffsetX + (x * 2 * rawScale),                     uioffsetY + (y * (2 * rawScale)) +(2 * rawScale));
-                    }
-                    GL11.glEnd();
-                }
+
+            if(layerTextures[layer] == null)
+                layerTextures[layer] = createAPTexture(bitmapColors, bitmaps, layer);
+            else
+                updateAPTexture(layerTextures[layer], bitmapColors, bitmaps, layer);
+
+            layerTextures[layer].Bind(0);
+            GL11.glBegin(GL_QUADS);
+            {
+                GL11.glTexCoord2i(0,0); GL11.glVertex2i(uioffsetX,                      uioffsetY);
+                GL11.glTexCoord2i(1,0); GL11.glVertex2i(uioffsetX + (64 * rawScale),    uioffsetY);
+                GL11.glTexCoord2i(1,1); GL11.glVertex2i(uioffsetX + (64 * rawScale),    uioffsetY + (64 * rawScale));
+                GL11.glTexCoord2i(0,1); GL11.glVertex2i(uioffsetX,                      uioffsetY + (64 * rawScale));
             }
+            GL11.glEnd();
 
         }
+        GL11.glEnable(GL_BLEND);
+        GL11.glDisable(GL11.GL_TEXTURE_2D);
     }
 
     public static void drawSelection(Selection selection){
@@ -686,4 +692,27 @@ public class Renderer {
         GLFW.glfwSetWindowShouldClose(window, false);
     }
 
+    /* TODO: move this somewhere else, probably in TLIB */
+    public static Texture createAPTexture(Color[] palette, int[][][] bitmap, int layerSample){
+        int id = GL11.glGenTextures();
+
+        GL11.glBindTexture(GL_TEXTURE_2D, id);
+        GL11.glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+        //disable garbage filtering
+        GL11.glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        GL11.glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+        Texture t = new Texture(id, 1, 1);
+
+        updateAPTexture(t, palette, bitmap, layerSample);
+        return t;
+    }
+
+    public static void updateAPTexture(Texture texture, Color[] palette, int[][][] bitmap, int layerSample){
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, texture.getId());
+
+        ByteBuffer buffer = APTextureLoader.genBufferFromBitmap(palette, bitmap, layerSample);
+        GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA, 32, 32, 0, GL11.GL_RGBA, GL_UNSIGNED_BYTE, buffer);
+    }
 }
