@@ -17,6 +17,8 @@ public class Application {
     public static final String verNum = "1.4.1";
 
     private static int[][][] layeredPixelArray = new int[32][32][7]; //x, y, layer
+    private static boolean[] layerTextureInvalid = new boolean[7];
+
     private static int activeLayer = 0;
     private static int activeColor = 0;
 
@@ -39,7 +41,6 @@ public class Application {
     private static String blinkBuffer = "";
     private static String scaleBuffer = "";
 
-    private static Boolean restartAfterExit = false;
     private static Color[] bitmapColors = {
             new Color(0, 0, 0),
             new Color(63,63,63),
@@ -148,6 +149,14 @@ public class Application {
 
             //Finish rendering
             Renderer.completeFrame();
+
+            //Refresh layer textures for next frame
+            for(int i = 0; i < 7; i++){
+                if(layerTextureInvalid[i]) {
+                    Renderer.updateLayer(bitmapColors, layeredPixelArray, i);
+                    layerTextureInvalid[i] = false;
+                }
+            }
         }
 
         GLFW.glfwTerminate();
@@ -239,13 +248,13 @@ public class Application {
                 }
             }
             toolmode = Tool.pencil;
+
+            layerTextureInvalid[activeLayer] = true;
         }
 
         //Flip vert
         if(toolmode == Tool.mirror_v) {
-            if (curSelection.selectionStage != 3) {
-                toolmode = Tool.pencil;
-            } else {
+            if (curSelection.selectionStage == 3) {
                 int[][] flippedPixelArray = new int[curSelection.x2 - curSelection.x1 + 1][curSelection.y2 - curSelection.y1 + 1];
 
                 clipboardBuffer = resetClipboardBuffer();
@@ -282,8 +291,11 @@ public class Application {
                         layeredPixelArray[x][y][activeLayer] = clipboardBuffer[x][y];
                     }
                 }
-                toolmode = Tool.pencil;
             }
+            toolmode = Tool.pencil;
+
+
+            layerTextureInvalid[activeLayer] = true;
         }
 
         //bitmap field
@@ -305,6 +317,8 @@ public class Application {
                         safeExit = false;
 
                         layeredPixelArray[Renderer.mouseXPixel - 2][Renderer.mouseYPixel][activeLayer] = activeColor;
+
+                        layerTextureInvalid[activeLayer] = true;
                     }
                 }
 
@@ -319,6 +333,8 @@ public class Application {
                         UndoBuffer.getFirst().AddPixel(Renderer.mouseXPixel - 2, Renderer.mouseYPixel, activeLayer, layeredPixelArray[Renderer.mouseXPixel - 2][Renderer.mouseYPixel][activeLayer]);
                         safeExit = false;
                         layeredPixelArray[Renderer.mouseXPixel - 2][Renderer.mouseYPixel][activeLayer] = -1;
+
+                        layerTextureInvalid[activeLayer] = true;
                     }
                 }
 
@@ -360,7 +376,7 @@ public class Application {
 
                         }
 
-
+                        layerTextureInvalid[activeLayer] = true;
                     }
                 }
 
@@ -443,7 +459,7 @@ public class Application {
                         if(curSelection.y2 < 0)
                             curSelection.y2 = 0;
 
-
+                        layerTextureInvalid[activeLayer] = true;
                     }
                 }
 
@@ -563,6 +579,7 @@ public class Application {
 
                             lastClickY = Renderer.mouseYPixel;
                         }
+                        layerTextureInvalid[activeLayer] = true;
                     }
                 }
 
@@ -595,6 +612,11 @@ public class Application {
             }
 
             toolmode = Tool.pencil;
+
+            //Invalidate all layers
+            for(int i = 0; i < 7; i++){
+                layerTextureInvalid[i] = true;
+            }
         }
 
         //Palette Changer
@@ -640,12 +662,17 @@ public class Application {
 
                         bitmapColors[activeColor] = new Color(Red, Green, blueint);
                     }
+
+                    for(int i = 0; i < 7; i++) {
+                        layerTextureInvalid[i] = true;
+                    }
                 }
             }
         }
 
         //Save
         if(toolmode == Tool.save){
+            toolmode = Tool.lock_save;
             try {
                 UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
             }
@@ -653,7 +680,6 @@ public class Application {
             }
 
             EventQueue.invokeLater(() -> {
-                toolmode = Tool.lock_save;
                 JFileChooser fileChooser = new JFileChooser();
 
                 //Prevent dumbness
@@ -690,6 +716,7 @@ public class Application {
 
         //Export
         if(toolmode == Tool.export){
+            toolmode = Tool.lock_export;
             try {
                 UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
             }
@@ -697,7 +724,6 @@ public class Application {
             }
 
             EventQueue.invokeLater(() -> {
-                toolmode = Tool.lock_export;
 
                 JFileChooser fileChooser = new JFileChooser();
 
@@ -732,6 +758,7 @@ public class Application {
 
         //Open
         if(toolmode == Tool.open){
+            toolmode = Tool.lock_open;
             try {
                 UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
             }
@@ -739,7 +766,6 @@ public class Application {
             }
 
             EventQueue.invokeLater(() -> {
-                toolmode = Tool.lock_open;
                 JFileChooser fileChooser = new JFileChooser();
 
                 //Prevent dumbness
@@ -762,6 +788,10 @@ public class Application {
                     FileManager.APFile apfile = FileManager.loadPixelArrayFromFile(fileChooser.getSelectedFile().getPath());
                     layeredPixelArray = apfile.pixelArray;
                     bitmapColors = apfile.palette;
+
+                    for(int i = 0; i < 7; i++) {
+                        layerTextureInvalid[i] = true;
+                    }
                 }
                 toolmode = Tool.pencil;
             });
@@ -899,6 +929,10 @@ public class Application {
                     layeredPixelArray[i.x][i.y][i.layer] = i.colorIndex;
                 }
                 UndoBuffer.removeFirst();
+
+                for(int i = 0; i < 7; i++) {
+                    layerTextureInvalid[i] = true;
+                }
             }
 
             //redo
@@ -920,6 +954,10 @@ public class Application {
                 }
 
                 RedoBuffer.removeFirst();
+
+                for(int i = 0; i < 7; i++) {
+                    layerTextureInvalid[i] = true;
+                }
             }
 
             //cut
@@ -947,6 +985,8 @@ public class Application {
                     }
                 }
                 curSelection.ResetSelection();
+
+                layerTextureInvalid[activeLayer] = true;
             }
 
             //copy
@@ -985,6 +1025,8 @@ public class Application {
                         layeredPixelArray[x][y][activeLayer] = clipboardBuffer[x][y];
                     }
                 }
+
+                layerTextureInvalid[activeLayer] = true;
             }
 
             //Save
@@ -1036,6 +1078,7 @@ public class Application {
 
         //Set new color
         layeredPixelArray[x][y][affectedLayer] = colorIndex;
+        layerTextureInvalid[activeLayer] = true;
 
         //Spread in the 4 directions
         floodFill(layeredPixelArray, affectedLayer, curSelection, useSelectionBounds, x + 1, y, targetColorIndex, colorIndex);

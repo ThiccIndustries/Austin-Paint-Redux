@@ -86,6 +86,10 @@ public class Renderer {
             System.err.println("Failed to set window icon");
         }
 
+        //Init layer textures
+        for(int i = 0; i < 7; i++){
+            layerTextures[i] = APTextureLoader.createEmptyTexture();
+        }
     }
 
     @SuppressWarnings("unused")
@@ -109,11 +113,6 @@ public class Renderer {
         for(int layer = 0; layer < 7; layer++){
             if(!allLayers && layer != layerToDraw)
                 continue;
-
-            if(layerTextures[layer] == null)
-                layerTextures[layer] = createAPTexture(bitmapColors, bitmaps, layer);
-            else
-                updateAPTexture(layerTextures[layer], bitmapColors, bitmaps, layer);
 
             //Disable transparency if first layer or only one layer being drawn
             if(layer == 0 || !allLayers)
@@ -145,11 +144,6 @@ public class Renderer {
         for(int layer = 0; layer < 7; layer++){
             int uioffsetX = (9 * uiScale) + (32 * pixelScale);
             int uioffsetY = (18 * uiScale) * (6 - layer) + uiScale;
-
-            if(layerTextures[layer] == null)
-                layerTextures[layer] = createAPTexture(bitmapColors, bitmaps, layer);
-            else
-                updateAPTexture(layerTextures[layer], bitmapColors, bitmaps, layer);
 
             layerTextures[layer].Bind(0);
             GL11.glBegin(GL11.GL_QUADS);
@@ -761,31 +755,7 @@ public class Renderer {
         GLFW.glfwSetWindowShouldClose(window, false);
     }
 
-    public static void requestWindowClose() {
-        GLFW.glfwSetWindowShouldClose(window, true);
-    }
-
-    /* TODO: move this somewhere else, probably in TLIB */
-    public static Texture createAPTexture(Color[] palette, int[][][] bitmap, int layerSample){
-        int id = GL11.glGenTextures();
-
-        GL11.glBindTexture(GL11.GL_TEXTURE_2D, id);
-        GL11.glPixelStorei(GL11.GL_UNPACK_ALIGNMENT, 1);
-
-        //disable garbage filtering
-        GL11.glTexParameterf(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
-        GL11.glTexParameterf(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
-
-        Texture t = new Texture(id, 1, 1);
-
-        updateAPTexture(t, palette, bitmap, layerSample);
-        return t;
-    }
-
-    public static void updateAPTexture(Texture texture, Color[] palette, int[][][] bitmap, int layerSample){
-        GL11.glBindTexture(GL11.GL_TEXTURE_2D, texture.getId());
-
-        ByteBuffer buffer = APTextureLoader.genBufferFromBitmap(palette, bitmap, layerSample);
-        GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA, 32, 32, 0, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, buffer);
+    public static void updateLayer(Color[] bitmapColors, int[][][] layeredPixelArray, int i) {
+        APTextureLoader.updateAPTexture(layerTextures[i], bitmapColors, layeredPixelArray, i);
     }
 }
