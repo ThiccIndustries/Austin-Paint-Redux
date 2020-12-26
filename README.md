@@ -28,6 +28,7 @@ Tools:
 * Save - Save AP2 file.
 * Export - Export BMP file.
 * Open - Open AP2 file.
+* Settings - Open settings menu
 
 Keybinds:
 * Control + X - Cut selection
@@ -35,6 +36,7 @@ Keybinds:
 * Control + V - Paste selection
 * Control + Z - Undo
 * Control + R - Redo
+* Alt + S     - Display only selected layer
 ### Libraries:
 Austin paint redux uses the following libraries:
 - LWJGL 3 Graphics library - [LINK](https://www.lwjgl.org/)
