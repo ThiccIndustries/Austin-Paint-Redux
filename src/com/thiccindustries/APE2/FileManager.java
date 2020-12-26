@@ -260,7 +260,7 @@ public class FileManager {
             fileLoaded.palette[i / 3] = new Color(rawPixelData[i + 16] & 0xff, rawPixelData[i + 16 + 1] & 0xff, rawPixelData[i + 16 + 2] & 0xff);
         }
 
-        if (rawPixelData.length == 576) {
+        if (rawPixelData.length == 576 || rawPixelData.length == 593) {
             System.out.println("Loading A.P.E / AP2 file.");
 
             for(int i = 1; i < 7; i++){
@@ -288,7 +288,7 @@ public class FileManager {
             }
 
         }
-        if(rawPixelData.length > 576 && rawPixelData.length != 4180){
+        if(rawPixelData.length > 576 && rawPixelData.length != 4180 && rawPixelData.length != 593){
 
             boolean[] activeLayers = new boolean[7];
             int activeLayerTotal = 0;
