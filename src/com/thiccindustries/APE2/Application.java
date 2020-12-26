@@ -107,7 +107,12 @@ public class Application {
         
         curSelection = new Selection();
 
+        for(int i = 0; i < 7; i++){
+            layerTextureInvalid[i] = true;
+        }
+
         while(!Renderer.windowShouldClose()){
+
             //Update input
             Mouse.Update();
             Keyboard.Update();
