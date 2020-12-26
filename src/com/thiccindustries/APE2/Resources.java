@@ -29,7 +29,7 @@ public class Resources {
         for(int tool = 0; tool < cursorTextures.length; tool++) {
 
             if(Tool.values()[tool].loadCursor())
-                cursorTextures[tool] = APTextureLoader.loadTexture("/res/tools/" + Tool.values()[tool].toString() + ".ap2", fallbackTexture);
+                cursorTextures[tool] = APTextureLoader.loadTexture("/res/tools/" + Tool.values()[tool].getCursor() + ".ap2", fallbackTexture);
             else
                 cursorTextures[tool] = uiCursor;
 
@@ -61,18 +61,22 @@ public class Resources {
         save        ("Save Image"),
         export      ("Export BMP"),
         open        ("Open Image"),
+        settings    ("Settings"),
 
         //Internal Tools
-        txt_color   (color, true),      //Hex value tool
-        lock_save   (save, false),      //Lock window while save is open
-        lock_export (export, false),    //Lock window while export is open
-        lock_open   (open, false),      //Lock window while open is open
-        save_warn   (pencil, false),    //Warn the user if exiting w/o saving
-        pencil_wait (pencil, true);     //Wait for a new mouse press to begin pencil tool (After closing dialog)
+        txt_color   (color,     "cursor_txt"),  //Hex value tool
+        txt_scale   (settings,  "cursor_txt"),  //S cale value tool
+        txt_blink   (settings,  "cursor_txt"),  //blink rate tool
+        lock_save   (save,      null),          //Lock window while save is open
+        lock_export (export,    null),          //Lock window while export is open
+        lock_open   (open,      null),          //Lock window while open is open
+        save_warn   (pencil,    null),          //Warn the user if exiting w/o saving
+        pencil_wait (pencil,    "pencil");      //Wait for a new mouse press to begin pencil tool (After closing dialog)
 
         private final String    dspName;    //The display name of this tool
         private final Boolean   display;    //True if tool should be displayed on the toolbar
         private final Boolean   hasCursor;  //True if a custom cursor texture needs to be loaded
+        private final String    cursorName; //The name of the cursor file to be loaded
         private final Tool      displayTool;//What tool is highlighted when selected. For visible tools, this is a self reference.
 
         //Constructor for a toolbar tool
@@ -81,20 +85,24 @@ public class Resources {
             this.display        = true;
             this.displayTool    = this;
             this.hasCursor      = true;
+            this.cursorName     = this.toString();
         }
 
         //Constructor for internal tools
-        Tool(Tool displayTool, boolean hasCursor){
+        Tool(Tool displayTool, String cursorName){
             this.dspName        = "missingno.";
             this.display        = false;
             this.displayTool    = displayTool;
-            this.hasCursor      = hasCursor;
+            this.hasCursor      = cursorName != null;
+            this.cursorName     = cursorName;
         }
 
         public String getName()     { return dspName; }
         public Boolean display()    { return display; }
         public Tool getDisplayTool(){ return displayTool; }
         public Boolean loadCursor() { return hasCursor; }
+        public String getCursor()   { return cursorName; }
+
     }
 
 

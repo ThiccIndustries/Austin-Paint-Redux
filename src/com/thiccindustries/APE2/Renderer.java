@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.DoubleBuffer;
 import java.text.DecimalFormat;
+import java.util.Objects;
 
 import static com.thiccindustries.APE2.Resources.*;
 import static org.lwjgl.opengl.GL11.*;
@@ -22,16 +23,20 @@ public class Renderer {
     public static int pixelScale = 16;
     public static int uiScale = 4;
     public static int rawScale = 1;
+    public static int blinkrate = 4;
+
     private static long window;
 
     private static double lastTime = 0;
     private static int FPS = 0;
     private static boolean CURSOR_BLINK;
-    private static int cycle = 0;
+
 
     private static final Texture[] layerTextures = new Texture[7];
 
-    public static void initGLFWAndCreateWindow(int windowScale){
+    public static void initGLFWAndCreateWindow(int windowScale, int blinkRate, boolean vsync){
+        blinkrate = blinkRate;
+
         pixelScale = 16 * windowScale;
         uiScale = 4 * windowScale;
         rawScale = windowScale;
@@ -58,7 +63,7 @@ public class Renderer {
         GL11.glOrtho(0, windowX, windowY, 0, 1, -1);
 
         //Vsync on
-        GLFW.glfwSwapInterval(0);
+        GLFW.glfwSwapInterval(vsync ? 1 : 0);
 
         //Set callbacks
         GLFW.glfwSetKeyCallback(window, new Keyboard());
@@ -189,11 +194,28 @@ public class Renderer {
             GL11.glEnd();
         }
 
-        if(CURSOR_BLINK && selection.selectionStage == 3){
-            for(int x = selection.x1; x <= selection.x2; x++){
-                for(int y = selection.y1; y <= selection.y2; y++){
+        int p2x = 0, p2y = 0;
+        switch(selection.selectionStage){
+            case 1:
+            {
+                p2x = mouseXPixel - 2;
+                p2y = mouseYPixel;
+                break;
+            }
+
+            case 3:
+            {
+                p2x = selection.x2;
+                p2y = selection.y2;
+                break;
+            }
+        }
+
+        if(CURSOR_BLINK && selection.selectionStage >= 1){
+            for(int x = selection.x1; x <= p2x; x++){
+                for(int y = selection.y1; y <= p2y; y++){
                     //Skip interior space
-                    if ((x != selection.x1 && x != selection.x2) && (y != selection.y1 && y != selection.y2))
+                    if ((x != selection.x1 && x != p2x) && (y != selection.y1 && y != p2y))
                         continue;
 
                     if((y + x ) % 2 == 0) {
@@ -355,7 +377,10 @@ public class Renderer {
             if(mouseTool < 0)
                 mouseTool = 0;
 
-            if (mouseTool <= 12)
+            if(mouseTool > Tool.values().length)
+                mouseTool = Tool.values().length;
+
+            if (Tool.values()[mouseTool].display())
                 drawText(Tool.values()[mouseTool].getName(), (int) mouseX + pixelScale, (int) mouseY + pixelScale, 1, true, Color.white, Color.black);
         }
 
@@ -363,7 +388,9 @@ public class Renderer {
         GL11.glColor3f(1,1,1);
         GL11.glEnable(GL11.GL_TEXTURE_2D);
         //If inside bitmap field
-        if((mouseXPixel > 1 && mouseXPixel < 34) && (mouseYPixel >= 0 && mouseYPixel < 32) && toolmode != Tool.color) {
+        if((mouseXPixel > 1 && mouseXPixel < 34) && (mouseYPixel >= 0 && mouseYPixel < 32) && toolmode != Tool.color && toolmode != Tool.settings) {
+
+            //Render tool specific cursor
             cursorTextures[toolmode.ordinal()].Bind(0);
         }else{
             uiCursor.Bind(0);
@@ -422,6 +449,51 @@ public class Renderer {
         drawText("Exit warn: " + !safeExit, 6 * pixelScale, 15 * pixelScale, 1, false, Color.white, null);
     }
 
+    //Settings window
+    public static void drawSettings(int scale, boolean vsync, String buttonText){
+        //Color Selector
+        int uiOffset = 2 * (pixelScale);
+        int winW = 28;
+        int winH = 16;
+        //Window Border
+        for (int x = 0; x < winW; x++) {
+            for (int y = 0; y < winH; y++) {
+                //checkboard pattern
+                Color UIColor = new Color(127, 127, 127);
+                if ((x > 0 && x < 27) && (y > 0 && y < 15))
+                    UIColor = Color.black;
+
+                GL11.glColor3f(UIColor.getRed() / 255f, UIColor.getGreen() / 255f, UIColor.getBlue() / 255f);
+                GL11.glBegin(GL11.GL_QUADS);
+                {
+                    GL11.glVertex2i((2 * pixelScale) + (x * pixelScale) + uiOffset, (y * pixelScale) + uiOffset);
+                    GL11.glVertex2i((2 * pixelScale) + (x * pixelScale) + uiOffset + pixelScale, (y * pixelScale) + uiOffset);
+                    GL11.glVertex2i((2 * pixelScale) + (x * pixelScale) + uiOffset + pixelScale, (y * pixelScale) + uiOffset + pixelScale);
+                    GL11.glVertex2i((2 * pixelScale) + (x * pixelScale) + uiOffset, (y * pixelScale) + uiOffset + pixelScale);
+                }
+                GL11.glEnd();
+            }
+        }
+
+        drawText("Settings:", 6 * pixelScale, (4 * pixelScale), 1, false, Color.white, null);
+
+        //Window scale
+        drawText("Scale (restart): "   + scale, 6 * pixelScale, (7 * pixelScale), 1, false, Color.white, null);
+        drawText("Blink Rate: "     + blinkrate, 6 * pixelScale, (9 * pixelScale), 1, false, Color.white, null);
+        //Vsync
+        String vsyncTxt = vsync ? "On" : "Off";
+        drawText("VSync: ", 6 * pixelScale, (11 * pixelScale), 1, false, Color.white, null);
+
+        //Vsync button
+        drawText(vsyncTxt, 13 * pixelScale, (11 * pixelScale), 1, true, Color.black, Color.gray);
+
+        //Draw button
+        int buttonTextCharOffset = 11 - TUtils.clamp(buttonText.length() / 2, 0, 11);
+        uiOffset = (2 + buttonTextCharOffset) * pixelScale;
+
+        drawText(buttonText, uiOffset + (5 * pixelScale), ((winH - 1) * pixelScale), 1, true, Color.black, Color.gray);
+
+    }
     //Draw a dialog box
     public static void drawDialog(String[] messageLines, String buttonText) {
 
@@ -676,20 +748,22 @@ public class Renderer {
     }
     public static void pollWindowEvents(){GLFW.glfwPollEvents();}
     public static void completeFrame(){
-        cycle++;
-        FPS = (int)(1f / (GLFW.glfwGetTime() - lastTime));
-        lastTime = GLFW.glfwGetTime();
 
-        int blinkRate = 144;
-        if(cycle % blinkRate == 0){
+        if( (int)(GLFW.glfwGetTime() * (float)blinkrate) > (int)(lastTime * (float)blinkrate) ){
+            FPS = (int)(1f / (GLFW.glfwGetTime() - lastTime));
             CURSOR_BLINK = !CURSOR_BLINK;
         }
 
+        lastTime = GLFW.glfwGetTime();
         GLFW.glfwSwapBuffers(window);
     }
 
     public static void abortWindowClose() {
         GLFW.glfwSetWindowShouldClose(window, false);
+    }
+
+    public static void requestWindowClose() {
+        GLFW.glfwSetWindowShouldClose(window, true);
     }
 
     /* TODO: move this somewhere else, probably in TLIB */

@@ -14,6 +14,8 @@ import static com.thiccindustries.APE2.Resources.*;
 
 public class Application {
 
+    public static final String verNum = "1.4.1";
+
     private static int[][][] layeredPixelArray = new int[32][32][7]; //x, y, layer
     private static int activeLayer = 0;
     private static int activeColor = 0;
@@ -24,13 +26,20 @@ public class Application {
     private static boolean drawDebug    = false;//Draw the debug screen
     private static boolean safeExit     = true; //Safe to exit without a warning
 
+    //Settings
+    private static boolean vsync        = false;
+    private static int windowScale      = 1;
+
     private static int lastClickX, lastClickY;
 
     private static final LinkedList<UndoEntity> UndoBuffer = new LinkedList<>();
     private static final LinkedList<UndoEntity> RedoBuffer = new LinkedList<>();
     private static int[][] clipboardBuffer;
     private static String hexBuffer = "";
+    private static String blinkBuffer = "";
+    private static String scaleBuffer = "";
 
+    private static Boolean restartAfterExit = false;
     private static Color[] bitmapColors = {
             new Color(0, 0, 0),
             new Color(63,63,63),
@@ -53,6 +62,26 @@ public class Application {
     private static Tool toolmode = Tool.pencil;
 
     public static void main(String[] args){
+
+        //Attempt to load settings
+        FileManager.Settings settings = FileManager.readSettingsFile(System.getProperty("user.home") + "/settings.apr");
+
+        int initialBlinkRate;
+
+        //No settings file
+        if(settings == null){
+            windowScale = 1;
+            initialBlinkRate = 4;
+            vsync = false;
+
+            FileManager.writeSettingsFile(System.getProperty("user.home") + "/settings.apr", windowScale, initialBlinkRate, vsync);
+        }else{
+            //Settings file loaded
+            windowScale         = settings.scale;
+            initialBlinkRate    = settings.blinkrate;
+            vsync               = settings.sync;
+        }
+
         //Init array to -1
         for(int layer = 0; layer < 7; layer++) {
             for (int y = 0; y < 32; y++) {
@@ -71,7 +100,7 @@ public class Application {
         }
 
 
-        Renderer.initGLFWAndCreateWindow(1);
+        Renderer.initGLFWAndCreateWindow(windowScale, initialBlinkRate, vsync);
 
         InitResources();
         
@@ -105,6 +134,9 @@ public class Application {
             if(toolmode == Tool.save_warn)
                 Renderer.drawDialog(new String[]{"Warning: unsaved changes", "press close again", "to exit."}, "Cancel");
 
+            if(toolmode.getDisplayTool() == Tool.settings)
+                Renderer.drawSettings(windowScale, vsync, "Save");
+
             //Draws debug screen
             if(drawDebug)
                 Renderer.drawDebugInf(toolmode, bitmapColors, activeColor, activeLayer, safeExit);
@@ -118,6 +150,7 @@ public class Application {
             Renderer.completeFrame();
         }
 
+        GLFW.glfwTerminate();
         System.exit(0);
     }
 
@@ -132,7 +165,7 @@ public class Application {
         }
 
         //Toolbar
-        if(Renderer.mouseXPixel < 2){
+            if(Renderer.mouseXPixel < 2){
             //Select new tool
             if(Mouse.GetButtonDown(GLFW.GLFW_MOUSE_BUTTON_1)){
                 int selectedToolOrdinal = (int)Renderer.mouseY / (8 * Renderer.uiScale);
@@ -334,16 +367,10 @@ public class Application {
                 //Select
                 if(toolmode == Tool.select) {
                     if(Mouse.GetButtonDown(GLFW.GLFW_MOUSE_BUTTON_1)) {
+
                         if (curSelection.selectionStage == 3) { //Finish Selection and reset
                             curSelection.ResetSelection();
                             curSelection.selectionStage = 0;
-                        }
-
-                        if (curSelection.selectionStage == 1) { //Second point
-                            curSelection.x2 = Renderer.mouseXPixel - 2;
-                            curSelection.y2 = Renderer.mouseYPixel;
-                            curSelection.selectionStage = 2;
-                            curSelection.CompleteSelection();
                         }
 
                         if (curSelection.selectionStage == 0) {
@@ -351,6 +378,13 @@ public class Application {
                             curSelection.y1 = Renderer.mouseYPixel;
                             curSelection.selectionStage = 1;
                         }
+                    }
+
+                    if(Mouse.GetButtonUp(GLFW.GLFW_MOUSE_BUTTON_1) && curSelection.selectionStage == 1){
+                        curSelection.x2 = Renderer.mouseXPixel - 2;
+                        curSelection.y2 = Renderer.mouseYPixel;
+                        curSelection.selectionStage = 2;
+                        curSelection.CompleteSelection();
                     }
                 }
 
@@ -733,7 +767,7 @@ public class Application {
             });
         }
 
-        //Text Entry Tool (Internal)
+        //Color Entry Tool (Internal)
         if(toolmode == Tool.txt_color){
             int activekey = Keyboard.GetAnyKey();
             if(activekey != -1 && TUtils.isHexChar((char)activekey)) {
@@ -761,12 +795,77 @@ public class Application {
             }
         }
 
+        //Scale Entry Tool (Internal)
+        if(toolmode == Tool.txt_scale){
+            int activekey = Keyboard.GetAnyKey();
+            if(activekey != -1 && TUtils.isDecChar((char)activekey)) {
+
+                if (scaleBuffer.length() >= 1) {
+                    scaleBuffer = "";
+                }
+
+                scaleBuffer += (char)activekey;
+                windowScale = Integer.parseInt(scaleBuffer);
+
+            }
+            if(!((Renderer.mouseXPixel >= 20 && Renderer.mouseXPixel < 20 + ((windowScale / 10) + 1)) && Renderer.mouseYPixel == 7)){
+                toolmode = Tool.settings;
+
+            }
+        }
+
+        //Blink Entry Tool (Internal)
+        if(toolmode == Tool.txt_blink){
+            int activekey = Keyboard.GetAnyKey();
+            if(activekey != -1 && TUtils.isDecChar((char)activekey)) {
+
+                if (blinkBuffer.length() >= 1) {
+                    blinkBuffer = "";
+                }
+
+                blinkBuffer += (char)activekey;
+                Renderer.blinkrate = Integer.parseInt(blinkBuffer);
+
+            }
+            if(!((Renderer.mouseXPixel >= 18 && Renderer.mouseXPixel < 18 + ((Renderer.blinkrate / 10) + 1)) && Renderer.mouseYPixel == 9)){
+                toolmode = Tool.settings;
+
+            }
+        }
+
         //Save warning box (Internal)
         if(toolmode == Tool.save_warn){
             //Clicked dismiss button
             if((Renderer.mouseXPixel >= 15 && Renderer.mouseXPixel <= 20) && Renderer.mouseYPixel == 21 && Mouse.GetButtonDown(GLFW.GLFW_MOUSE_BUTTON_1))
                 toolmode = Tool.pencil_wait;
         }
+
+        //Settings window
+        if(toolmode == Tool.settings){
+            //Clicked vsync button
+            if((Renderer.mouseXPixel >= 13 && Renderer.mouseXPixel <= 15) && Renderer.mouseYPixel == 11 && Mouse.GetButtonDown(GLFW.GLFW_MOUSE_BUTTON_1)) {
+                vsync = !vsync;
+                GLFW.glfwSwapInterval(vsync ? 1 : 0);
+            }
+
+            if((Renderer.mouseXPixel >= 23 && Renderer.mouseXPixel < 23 + ((windowScale / 10) + 1)) && Renderer.mouseYPixel == 7){
+                //Text editing
+                scaleBuffer = "";
+                toolmode = Tool.txt_scale;
+            }
+
+            if((Renderer.mouseXPixel >= 18 && Renderer.mouseXPixel < 18 + ((Renderer.blinkrate / 10) + 1)) && Renderer.mouseYPixel == 9){
+                //Text editing
+                blinkBuffer = "";
+                toolmode = Tool.txt_blink;
+            }
+            //Clicked dismiss button
+            if((Renderer.mouseXPixel >= 15 && Renderer.mouseXPixel <= 21) && Renderer.mouseYPixel == 15 && Mouse.GetButtonDown(GLFW.GLFW_MOUSE_BUTTON_1)){
+                FileManager.writeSettingsFile(System.getProperty("user.home") + "/settings.apr", windowScale, Renderer.blinkrate, vsync);
+                toolmode = Tool.pencil_wait;
+            }
+        }
+
 
         //Change color index right
         if(Keyboard.GetKeyDown(GLFW.GLFW_KEY_TAB) && !Keyboard.GetKey(GLFW.GLFW_KEY_LEFT_SHIFT)){

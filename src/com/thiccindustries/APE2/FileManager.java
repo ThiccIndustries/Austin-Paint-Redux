@@ -386,7 +386,53 @@ public class FileManager {
         return fileLoaded;
     }
 
+    public static Settings readSettingsFile(String filePath){
+        Settings settings = new Settings();
 
+        File file = new File(filePath);
+
+        FileInputStream fis;
+        byte[] rawPixelData = new byte[(int) file.length()];
+
+        try {
+            fis = new FileInputStream(file);
+            fis.read(rawPixelData); //No its literally not.
+            fis.close();
+
+        } catch (FileNotFoundException e) {
+            System.err.print("File did not exist.");
+            return null;
+        } catch (IOException e) {
+            System.err.print("Unknown IO Error.");
+        }
+
+        settings.scale      = (int)rawPixelData[0];
+        settings.blinkrate  = (int)rawPixelData[1];
+        settings.sync       = (int)rawPixelData[2] == 1;
+
+        System.out.println(rawPixelData[0] + " , " + rawPixelData[1] + " , " + rawPixelData[2]);
+
+        return settings;
+    }
+
+    public static void writeSettingsFile(String filePath, int scale, int blinkrate, boolean sync){
+        byte[] settingBytes = new byte[3];
+
+        settingBytes[0] = (byte)scale;
+        settingBytes[1] = (byte)blinkrate;
+        settingBytes[2] = (byte)(sync ? 1 : 0);
+
+        File file = new File(filePath);
+        FileOutputStream fos;
+        try {
+            file.createNewFile();
+            fos = new FileOutputStream(file);
+            fos.write(settingBytes);
+            fos.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
 
     //Flattens the Austin Paint Redux layered image into an array that can be read by APE / AP2
     public static int[][] flattenAPImage(int[][][] layeredArray){
@@ -408,6 +454,12 @@ public class FileManager {
     public static class APFile{
         public int[][][] pixelArray;
         public Color[] palette = new Color[16];
+    }
+
+    public static class Settings{
+        public int blinkrate = 4;
+        public int scale = 1;
+        public boolean sync = false;
     }
 }
 
