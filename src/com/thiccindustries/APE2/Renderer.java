@@ -15,7 +15,6 @@ import java.text.DecimalFormat;
 import java.util.Objects;
 
 import static com.thiccindustries.APE2.Resources.*;
-import static org.lwjgl.opengl.GL11.*;
 
 public class Renderer {
     public static double mouseX, mouseY;
@@ -125,7 +124,7 @@ public class Renderer {
             GL11.glEnable(GL11.GL_TEXTURE_2D);
 
             layerTextures[layer].Bind(0);
-            GL11.glBegin(GL_QUADS);
+            GL11.glBegin(GL11.GL_QUADS);
             {
                 GL11.glTexCoord2i(0,0); GL11.glVertex2i((8 * uiScale),                      0);
                 GL11.glTexCoord2i(1,0); GL11.glVertex2i((8 * uiScale) + (32 * pixelScale),  0);
@@ -153,7 +152,7 @@ public class Renderer {
                 updateAPTexture(layerTextures[layer], bitmapColors, bitmaps, layer);
 
             layerTextures[layer].Bind(0);
-            GL11.glBegin(GL_QUADS);
+            GL11.glBegin(GL11.GL_QUADS);
             {
                 GL11.glTexCoord2i(0,0); GL11.glVertex2i(uioffsetX,                      uioffsetY);
                 GL11.glTexCoord2i(1,0); GL11.glVertex2i(uioffsetX + (64 * rawScale),    uioffsetY);
@@ -163,7 +162,7 @@ public class Renderer {
             GL11.glEnd();
 
         }
-        GL11.glEnable(GL_BLEND);
+        GL11.glEnable(GL11.GL_BLEND);
         GL11.glDisable(GL11.GL_TEXTURE_2D);
     }
 
@@ -377,7 +376,7 @@ public class Renderer {
             if(mouseTool < 0)
                 mouseTool = 0;
 
-            if(mouseTool > Tool.values().length)
+            if(mouseTool >= Tool.values().length)
                 mouseTool = Tool.values().length - 1;
 
             if (Tool.values()[mouseTool].display())
@@ -770,12 +769,12 @@ public class Renderer {
     public static Texture createAPTexture(Color[] palette, int[][][] bitmap, int layerSample){
         int id = GL11.glGenTextures();
 
-        GL11.glBindTexture(GL_TEXTURE_2D, id);
-        GL11.glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, id);
+        GL11.glPixelStorei(GL11.GL_UNPACK_ALIGNMENT, 1);
 
         //disable garbage filtering
-        GL11.glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        GL11.glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        GL11.glTexParameterf(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
+        GL11.glTexParameterf(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
 
         Texture t = new Texture(id, 1, 1);
 
@@ -787,6 +786,6 @@ public class Renderer {
         GL11.glBindTexture(GL11.GL_TEXTURE_2D, texture.getId());
 
         ByteBuffer buffer = APTextureLoader.genBufferFromBitmap(palette, bitmap, layerSample);
-        GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA, 32, 32, 0, GL11.GL_RGBA, GL_UNSIGNED_BYTE, buffer);
+        GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA, 32, 32, 0, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, buffer);
     }
 }
