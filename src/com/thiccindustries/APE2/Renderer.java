@@ -378,7 +378,7 @@ public class Renderer {
                 mouseTool = 0;
 
             if(mouseTool > Tool.values().length)
-                mouseTool = Tool.values().length;
+                mouseTool = Tool.values().length - 1;
 
             if (Tool.values()[mouseTool].display())
                 drawText(Tool.values()[mouseTool].getName(), (int) mouseX + pixelScale, (int) mouseY + pixelScale, 1, true, Color.white, Color.black);
