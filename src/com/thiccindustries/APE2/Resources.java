@@ -1,3 +1,4 @@
+//I rike the way this file looks
 package com.thiccindustries.APE2;
 
 import java.awt.*;
@@ -48,7 +49,7 @@ public class Resources {
     public enum Tool{
 
         //Toolbar tools
-        pencil      ("Pencil Tool"),
+        pencil      ("Pencil"),
         erase       ("Erase Tool"),
         fill        ("Fill Tool"),
         select      ("Selection Tool"),
@@ -60,6 +61,7 @@ public class Resources {
         color       ("Edit Palette"),
         save        ("Save Image"),
         export      ("Export BMP"),
+        create      ("New Image"),
         open        ("Open Image"),
         settings    ("Settings"),
 
@@ -67,11 +69,15 @@ public class Resources {
         txt_color   (color,     "cursor_txt"),  //Hex value tool
         txt_scale   (settings,  "cursor_txt"),  //S cale value tool
         txt_blink   (settings,  "cursor_txt"),  //blink rate tool
+        pencil_wait (pencil,    "pencil"),      //Wait for a new mouse press to begin pencil tool (After closing dialog)
         lock_save   (save,      null),          //Lock window while save is open
         lock_export (export,    null),          //Lock window while export is open
         lock_open   (open,      null),          //Lock window while open is open
+        lock_color  (color,     null),          //Lock window while saving or opening palette
         save_warn   (pencil,    null),          //Warn the user if exiting w/o saving
-        pencil_wait (pencil,    "pencil");      //Wait for a new mouse press to begin pencil tool (After closing dialog)
+        new_warn    (pencil,    null),          //Warn the user if creating a new file w/o saving
+        save_color  (color,     null),          //Save the palette
+        load_color  (color,     null);          //Load the palette
 
         private final String    dspName;    //The display name of this tool
         private final Boolean   display;    //True if tool should be displayed on the toolbar

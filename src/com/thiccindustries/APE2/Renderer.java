@@ -3,16 +3,16 @@ import com.thiccindustries.TLib.*;
 
 import org.apache.commons.lang.ArrayUtils;
 import org.lwjgl.BufferUtils;
-import org.lwjgl.glfw.GLFW;
 import org.lwjgl.glfw.GLFWImage;
-import org.lwjgl.opengl.GL11;
-import org.lwjgl.opengl.GL;
+
+import static org.lwjgl.glfw.GLFW.*;
+import static org.lwjgl.opengl.GL.*;
+import static org.lwjgl.opengl.GL11.*;
 import java.awt.Color;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.DoubleBuffer;
 import java.text.DecimalFormat;
-import java.util.Objects;
 
 import static com.thiccindustries.APE2.Resources.*;
 
@@ -43,30 +43,30 @@ public class Renderer {
         int windowY = (32 * pixelScale) + (2 * pixelScale);
 
 
-        if(!GLFW.glfwInit()){
+        if(!glfwInit()){
             System.err.println("GLFW library init failed!");
             System.exit(1);
         }
 
-        GLFW.glfwWindowHint(GLFW.GLFW_RESIZABLE, 0);
-        window = GLFW.glfwCreateWindow(windowX, windowY, "Austin Paint Redux", 0, 0);
-        GLFW.glfwShowWindow(window);
-        GLFW.glfwMakeContextCurrent(window);
-        GL.createCapabilities();
-        GL11.glEnable(GL11.GL_BLEND);
-        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        glfwWindowHint(GLFW_RESIZABLE, 0);
+        window = glfwCreateWindow(windowX, windowY, "Austin Paint Redux", 0, 0);
+        glfwShowWindow(window);
+        glfwMakeContextCurrent(window);
+        createCapabilities();
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-        GLFW.glfwSetInputMode(window, GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_HIDDEN);
-        GL11.glMatrixMode(GL11.GL_PROJECTION);
-        GL11.glLoadIdentity();
-        GL11.glOrtho(0, windowX, windowY, 0, 1, -1);
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
+        glMatrixMode(GL_PROJECTION);
+        glLoadIdentity();
+        glOrtho(0, windowX, windowY, 0, 1, -1);
 
         //Vsync on
-        GLFW.glfwSwapInterval(vsync ? 1 : 0);
+        glfwSwapInterval(vsync ? 1 : 0);
 
         //Set callbacks
-        GLFW.glfwSetKeyCallback(window, new Keyboard());
-        GLFW.glfwSetMouseButtonCallback(window, new Mouse());
+        glfwSetKeyCallback(window, new Keyboard());
+        glfwSetMouseButtonCallback(window, new Mouse());
 
 
         //Set window icon
@@ -81,7 +81,7 @@ public class Renderer {
                     .pixels(iconBuffer);
 
 
-            GLFW.glfwSetWindowIcon(window, icons);
+            glfwSetWindowIcon(window, icons);
         }catch(IOException e){
             System.err.println("Failed to set window icon");
         }
@@ -94,21 +94,21 @@ public class Renderer {
 
     @SuppressWarnings("unused")
     public static void temp_debugFont(){
-        GL11.glColor3f(1,1,1);
+        glColor3f(1,1,1);
         font.Bind(0);
-        GL11.glEnable(GL11.GL_TEXTURE_2D);
-        GL11.glBegin(GL11.GL_QUADS);
+        glEnable(GL_TEXTURE_2D);
+        glBegin(GL_QUADS);
         {
-            GL11.glTexCoord2i(0,0); GL11.glVertex2i(0,0);
-            GL11.glTexCoord2i(1,0); GL11.glVertex2i((8 * uiScale) + (32 * pixelScale) + (18 * uiScale),0);
-            GL11.glTexCoord2i(1,1); GL11.glVertex2i((8 * uiScale) + (32 * pixelScale) + (18 * uiScale),(32 * pixelScale) + (2 * pixelScale));
-            GL11.glTexCoord2i(0,1); GL11.glVertex2i(0,(32 * pixelScale) + (2 * pixelScale));
+            glTexCoord2i(0,0); glVertex2i(0,0);
+            glTexCoord2i(1,0); glVertex2i((8 * uiScale) + (32 * pixelScale) + (18 * uiScale),0);
+            glTexCoord2i(1,1); glVertex2i((8 * uiScale) + (32 * pixelScale) + (18 * uiScale),(32 * pixelScale) + (2 * pixelScale));
+            glTexCoord2i(0,1); glVertex2i(0,(32 * pixelScale) + (2 * pixelScale));
         }
-        GL11.glEnd();
-        GL11.glDisable(GL11.GL_TEXTURE_2D);
+        glEnd();
+        glDisable(GL_TEXTURE_2D);
     }
 
-    public static void drawBitmapLayers(int [][][] bitmaps, Color[] bitmapColors, boolean allLayers, int layerToDraw){
+    public static void drawBitmapLayers(boolean allLayers, int layerToDraw){
         //Only draw active layers, as the rest would just waste time, and aren't visible in the ui
         for(int layer = 0; layer < 7; layer++){
             if(!allLayers && layer != layerToDraw)
@@ -116,83 +116,83 @@ public class Renderer {
 
             //Disable transparency if first layer or only one layer being drawn
             if(layer == 0 || !allLayers)
-                GL11.glDisable(GL11.GL_BLEND);
+                glDisable(GL_BLEND);
             else
-                GL11.glEnable(GL11.GL_BLEND);
+                glEnable(GL_BLEND);
 
-            GL11.glEnable(GL11.GL_TEXTURE_2D);
+            glEnable(GL_TEXTURE_2D);
 
             layerTextures[layer].Bind(0);
-            GL11.glBegin(GL11.GL_QUADS);
+            glBegin(GL_QUADS);
             {
-                GL11.glTexCoord2i(0,0); GL11.glVertex2i((8 * uiScale),                      0);
-                GL11.glTexCoord2i(1,0); GL11.glVertex2i((8 * uiScale) + (32 * pixelScale),  0);
-                GL11.glTexCoord2i(1,1); GL11.glVertex2i((8 * uiScale) + (32 * pixelScale),  (32 * pixelScale));
-                GL11.glTexCoord2i(0,1); GL11.glVertex2i((8 * uiScale),                      (32 * pixelScale));
+                glTexCoord2i(0,0); glVertex2i((8 * uiScale),                      0);
+                glTexCoord2i(1,0); glVertex2i((8 * uiScale) + (32 * pixelScale),  0);
+                glTexCoord2i(1,1); glVertex2i((8 * uiScale) + (32 * pixelScale),  (32 * pixelScale));
+                glTexCoord2i(0,1); glVertex2i((8 * uiScale),                      (32 * pixelScale));
 
             }
-            GL11.glEnd();
-            GL11.glDisable(GL11.GL_TEXTURE_2D);
+            glEnd();
+            glDisable(GL_TEXTURE_2D);
         }
 
-        GL11.glEnable(GL11.GL_BLEND);
+        glEnable(GL_BLEND);
     }
 
-    public static void drawBitmapLayersSplit(int [][][] bitmaps, Color[] bitmapColors){
-        GL11.glDisable(GL11.GL_BLEND);
-        GL11.glEnable(GL11.GL_TEXTURE_2D);
+    public static void drawBitmapLayerPreviews(){
+        glDisable(GL_BLEND);
+        glEnable(GL_TEXTURE_2D);
         for(int layer = 0; layer < 7; layer++){
             int uioffsetX = (9 * uiScale) + (32 * pixelScale);
             int uioffsetY = (18 * uiScale) * (6 - layer) + uiScale;
 
             layerTextures[layer].Bind(0);
-            GL11.glBegin(GL11.GL_QUADS);
+            glBegin(GL_QUADS);
             {
-                GL11.glTexCoord2i(0,0); GL11.glVertex2i(uioffsetX,                      uioffsetY);
-                GL11.glTexCoord2i(1,0); GL11.glVertex2i(uioffsetX + (64 * rawScale),    uioffsetY);
-                GL11.glTexCoord2i(1,1); GL11.glVertex2i(uioffsetX + (64 * rawScale),    uioffsetY + (64 * rawScale));
-                GL11.glTexCoord2i(0,1); GL11.glVertex2i(uioffsetX,                      uioffsetY + (64 * rawScale));
+                glTexCoord2i(0,0); glVertex2i(uioffsetX,                      uioffsetY);
+                glTexCoord2i(1,0); glVertex2i(uioffsetX + (64 * rawScale),    uioffsetY);
+                glTexCoord2i(1,1); glVertex2i(uioffsetX + (64 * rawScale),    uioffsetY + (64 * rawScale));
+                glTexCoord2i(0,1); glVertex2i(uioffsetX,                      uioffsetY + (64 * rawScale));
             }
-            GL11.glEnd();
+            glEnd();
 
         }
-        GL11.glEnable(GL11.GL_BLEND);
-        GL11.glDisable(GL11.GL_TEXTURE_2D);
+        glEnable(GL_BLEND);
+        glDisable(GL_TEXTURE_2D);
     }
 
     public static void drawSelection(Selection selection){
         if(selection.selectionStage >= 1){
             //Render first point
-            GL11.glColor3f(0.5f, 0.5f, 0.5f);
-            GL11.glBegin(GL11.GL_QUADS);
+            glColor3f(0.5f, 0.5f, 0.5f);
+            glBegin(GL_QUADS);
             {
-                GL11.glVertex2i((8 * uiScale) + (selection.x1 * pixelScale),                selection.y1 * pixelScale);
-                GL11.glVertex2i((8 * uiScale) + (selection.x1 * pixelScale) + pixelScale,   selection.y1 * pixelScale);
-                GL11.glVertex2i((8 * uiScale) + (selection.x1 * pixelScale) + pixelScale,   selection.y1 * pixelScale + pixelScale);
-                GL11.glVertex2i((8 * uiScale) + (selection.x1 * pixelScale),                selection.y1 * pixelScale + pixelScale);
+                glVertex2i((8 * uiScale) + (selection.x1 * pixelScale),                selection.y1 * pixelScale);
+                glVertex2i((8 * uiScale) + (selection.x1 * pixelScale) + pixelScale,   selection.y1 * pixelScale);
+                glVertex2i((8 * uiScale) + (selection.x1 * pixelScale) + pixelScale,   selection.y1 * pixelScale + pixelScale);
+                glVertex2i((8 * uiScale) + (selection.x1 * pixelScale),                selection.y1 * pixelScale + pixelScale);
             }
-            GL11.glEnd();
+            glEnd();
         }
 
         if(selection.selectionStage >= 2){
             //Render second point
-            GL11.glColor3f(0.5f, 0.5f, 0.5f);
-            GL11.glBegin(GL11.GL_QUADS);
+            glColor3f(0.5f, 0.5f, 0.5f);
+            glBegin(GL_QUADS);
             {
-                GL11.glVertex2i((8 * uiScale) + (selection.x2 * pixelScale),                selection.y2 * pixelScale);
-                GL11.glVertex2i((8 * uiScale) + (selection.x2 * pixelScale) + pixelScale,   selection.y2 * pixelScale);
-                GL11.glVertex2i((8 * uiScale) + (selection.x2 * pixelScale) + pixelScale,   selection.y2 * pixelScale + pixelScale);
-                GL11.glVertex2i((8 * uiScale) + (selection.x2 * pixelScale),                selection.y2 * pixelScale + pixelScale);
+                glVertex2i((8 * uiScale) + (selection.x2 * pixelScale),                selection.y2 * pixelScale);
+                glVertex2i((8 * uiScale) + (selection.x2 * pixelScale) + pixelScale,   selection.y2 * pixelScale);
+                glVertex2i((8 * uiScale) + (selection.x2 * pixelScale) + pixelScale,   selection.y2 * pixelScale + pixelScale);
+                glVertex2i((8 * uiScale) + (selection.x2 * pixelScale),                selection.y2 * pixelScale + pixelScale);
             }
-            GL11.glEnd();
+            glEnd();
         }
 
         int p2x = 0, p2y = 0;
         switch(selection.selectionStage){
             case 1:
             {
-                p2x = mouseXPixel - 2;
-                p2y = mouseYPixel;
+                p2x = TUtils.clamp(mouseXPixel - 2, 0, 31);
+                p2y = TUtils.clamp(mouseYPixel,     0, 31);
                 break;
             }
 
@@ -212,19 +212,19 @@ public class Renderer {
                         continue;
 
                     if((y + x ) % 2 == 0) {
-                        GL11.glColor3f(0.5f, 0.5f, 0.5f);
+                        glColor3f(0.5f, 0.5f, 0.5f);
                     }else{
-                        GL11.glColor3f(0f, 0f, 0f);
+                        glColor3f(0f, 0f, 0f);
                     }
 
-                    GL11.glBegin(GL11.GL_QUADS);
+                    glBegin(GL_QUADS);
                     {
-                        GL11.glVertex2i((8 * uiScale) + x * pixelScale,              y * pixelScale);
-                        GL11.glVertex2i((8 * uiScale) + x * pixelScale + pixelScale, y * pixelScale);
-                        GL11.glVertex2i((8 * uiScale) + x * pixelScale + pixelScale, y * pixelScale + pixelScale);
-                        GL11.glVertex2i((8 * uiScale) + x * pixelScale,              y * pixelScale + pixelScale);
+                        glVertex2i((8 * uiScale) + x * pixelScale,              y * pixelScale);
+                        glVertex2i((8 * uiScale) + x * pixelScale + pixelScale, y * pixelScale);
+                        glVertex2i((8 * uiScale) + x * pixelScale + pixelScale, y * pixelScale + pixelScale);
+                        glVertex2i((8 * uiScale) + x * pixelScale,              y * pixelScale + pixelScale);
                     }
-                    GL11.glEnd();
+                    glEnd();
                 }
             }
         }
@@ -234,28 +234,28 @@ public class Renderer {
         /* Draw toolbar */
 
         //Toolbar background
-        GL11.glColor3f(0.125f,0.125f,0.125f);
-        GL11.glBegin(GL11.GL_QUADS);
+        glColor3f(0.125f,0.125f,0.125f);
+        glBegin(GL_QUADS);
         {
-            GL11.glVertex2i(0,              0);
-            GL11.glVertex2i((8 * uiScale),  0);
-            GL11.glVertex2i((8 * uiScale),  (32 * pixelScale) + (2 * pixelScale));
-            GL11.glVertex2i(0,              (32 * pixelScale) + (2 * pixelScale));
+            glVertex2i(0,              0);
+            glVertex2i((8 * uiScale),  0);
+            glVertex2i((8 * uiScale),  (32 * pixelScale) + (2 * pixelScale));
+            glVertex2i(0,              (32 * pixelScale) + (2 * pixelScale));
         }
-        GL11.glEnd();
+        glEnd();
 
         //Selected tool
         int selectedToolHighlightPos = toolmode.getDisplayTool().ordinal();
 
-        GL11.glColor3ub((byte)0,(byte)74,(byte)127);
-        GL11.glBegin(GL11.GL_QUADS);
+        glColor3ub((byte)0,(byte)74,(byte)127);
+        glBegin(GL_QUADS);
         {
-            GL11.glVertex2i(0,              8 * uiScale * selectedToolHighlightPos);
-            GL11.glVertex2i((8 * uiScale),  8 * uiScale * selectedToolHighlightPos);
-            GL11.glVertex2i((8 * uiScale),  8 * uiScale * selectedToolHighlightPos + (8 * uiScale));
-            GL11.glVertex2i(0,              8 * uiScale * selectedToolHighlightPos + (8 * uiScale));
+            glVertex2i(0,              8 * uiScale * selectedToolHighlightPos);
+            glVertex2i((8 * uiScale),  8 * uiScale * selectedToolHighlightPos);
+            glVertex2i((8 * uiScale),  8 * uiScale * selectedToolHighlightPos + (8 * uiScale));
+            glVertex2i(0,              8 * uiScale * selectedToolHighlightPos + (8 * uiScale));
         }
-        GL11.glEnd();
+        glEnd();
 
 
         //Tool icons
@@ -267,83 +267,83 @@ public class Renderer {
 
             cursorTextures[ Tool.values()[i].getDisplayTool().ordinal() ].Bind(0);
 
-            GL11.glEnable(GL11.GL_TEXTURE_2D);
-            GL11.glColor3f(1,1,1);
-            GL11.glBegin(GL11.GL_QUADS);
+            glEnable(GL_TEXTURE_2D);
+            glColor3f(1,1,1);
+            glBegin(GL_QUADS);
             {
-                GL11.glTexCoord2i(0,0); GL11.glVertex2i(0,                  (i * (8 * uiScale)));
-                GL11.glTexCoord2i(1,0); GL11.glVertex2i((8 * uiScale),      (i * (8 * uiScale)));
-                GL11.glTexCoord2i(1,1); GL11.glVertex2i((8 * uiScale),      (i * (8 * uiScale)) + (8 * uiScale));
-                GL11.glTexCoord2i(0,1); GL11.glVertex2i(0,                  (i * (8 * uiScale)) + (8 * uiScale));
+                glTexCoord2i(0,0); glVertex2i(0,                  (i * (8 * uiScale)));
+                glTexCoord2i(1,0); glVertex2i((8 * uiScale),      (i * (8 * uiScale)));
+                glTexCoord2i(1,1); glVertex2i((8 * uiScale),      (i * (8 * uiScale)) + (8 * uiScale));
+                glTexCoord2i(0,1); glVertex2i(0,                  (i * (8 * uiScale)) + (8 * uiScale));
             }
-            GL11.glEnd();
-            GL11.glDisable(GL11.GL_TEXTURE_2D);
+            glEnd();
+            glDisable(GL_TEXTURE_2D);
         }
 
         /*Draw color palette*/
-        GL11.glColor3f(0,0,0);
-        GL11.glBegin(GL11.GL_QUADS);
+        glColor3f(0,0,0);
+        glBegin(GL_QUADS);
         {
-            GL11.glVertex2i((8 * uiScale),                      (32 * pixelScale) );
-            GL11.glVertex2i((8 * uiScale) + (32 * pixelScale),  (32 * pixelScale) );
-            GL11.glVertex2i((8 * uiScale) + (32 * pixelScale),  (32 * pixelScale) + (2 * pixelScale) );
-            GL11.glVertex2i((8 * uiScale),                      (32 * pixelScale) + (2 * pixelScale) );
+            glVertex2i((8 * uiScale),                      (32 * pixelScale) );
+            glVertex2i((8 * uiScale) + (32 * pixelScale),  (32 * pixelScale) );
+            glVertex2i((8 * uiScale) + (32 * pixelScale),  (32 * pixelScale) + (2 * pixelScale) );
+            glVertex2i((8 * uiScale),                      (32 * pixelScale) + (2 * pixelScale) );
         }
-        GL11.glEnd();
+        glEnd();
 
         for(int i = 0; i < palette.length; i++){
             int uiHeight = (selectedColor == i) ? 0 : 1;
-            GL11.glColor3ub((byte)palette[i].getRed(), (byte)palette[i].getGreen(), (byte)palette[i].getBlue());
-            GL11.glBegin(GL11.GL_QUADS);
+            glColor3ub((byte)palette[i].getRed(), (byte)palette[i].getGreen(), (byte)palette[i].getBlue());
+            glBegin(GL_QUADS);
             {
-                GL11.glVertex2i((8 * uiScale) + (2 * pixelScale * i),                       (32 * pixelScale) + (uiHeight * pixelScale));
-                GL11.glVertex2i((8 * uiScale) + (2 * pixelScale * i) + (2 * pixelScale),    (32 * pixelScale) + (uiHeight * pixelScale));
-                GL11.glVertex2i((8 * uiScale) + (2 * pixelScale * i) + (2 * pixelScale),    (32 * pixelScale) + (uiHeight * pixelScale) + (2 * pixelScale));
-                GL11.glVertex2i((8 * uiScale) + (2 * pixelScale * i),                       (32 * pixelScale) + (uiHeight * pixelScale) + (2 * pixelScale));
+                glVertex2i((8 * uiScale) + (2 * pixelScale * i),                       (32 * pixelScale) + (uiHeight * pixelScale));
+                glVertex2i((8 * uiScale) + (2 * pixelScale * i) + (2 * pixelScale),    (32 * pixelScale) + (uiHeight * pixelScale));
+                glVertex2i((8 * uiScale) + (2 * pixelScale * i) + (2 * pixelScale),    (32 * pixelScale) + (uiHeight * pixelScale) + (2 * pixelScale));
+                glVertex2i((8 * uiScale) + (2 * pixelScale * i),                       (32 * pixelScale) + (uiHeight * pixelScale) + (2 * pixelScale));
             }
-            GL11.glEnd();
+            glEnd();
         }
 
         /*Draw layers BG*/
 
-        GL11.glEnable(GL11.GL_TEXTURE_2D);
+        glEnable(GL_TEXTURE_2D);
         for(int i = 0; i < 7; i++){
             if(i == selectedLayer){
                 layerBackground_active.Bind(0);
             }else{
                 layerBackground.Bind(0);
             }
-            GL11.glColor3f(1,1,1);
-            GL11.glBegin(GL11.GL_QUADS);
+            glColor3f(1,1,1);
+            glBegin(GL_QUADS);
             {
                 int uioffset = (8 * uiScale) + (32 * pixelScale);
-                GL11.glTexCoord2i(0,0); GL11.glVertex2i(uioffset,                   (18 * uiScale * (6 - i)) );
-                GL11.glTexCoord2i(1,0); GL11.glVertex2i(uioffset + (18 * uiScale),  (18 * uiScale * (6 - i)) );
-                GL11.glTexCoord2i(1,1); GL11.glVertex2i(uioffset + (18 * uiScale),  (18 * uiScale * (6 - i)) + (18 * uiScale));
-                GL11.glTexCoord2i(0,1); GL11.glVertex2i(uioffset,                   (18 * uiScale * (6 - i)) + (18 * uiScale));
+                glTexCoord2i(0,0); glVertex2i(uioffset,                   (18 * uiScale * (6 - i)) );
+                glTexCoord2i(1,0); glVertex2i(uioffset + (18 * uiScale),  (18 * uiScale * (6 - i)) );
+                glTexCoord2i(1,1); glVertex2i(uioffset + (18 * uiScale),  (18 * uiScale * (6 - i)) + (18 * uiScale));
+                glTexCoord2i(0,1); glVertex2i(uioffset,                   (18 * uiScale * (6 - i)) + (18 * uiScale));
             }
-            GL11.glEnd();
+            glEnd();
 
         }
-        GL11.glDisable(GL11.GL_TEXTURE_2D);
+        glDisable(GL_TEXTURE_2D);
 
         /*Logo*/
 
-        GL11.glColor3f(0,0,0);
-        GL11.glBegin(GL11.GL_QUADS);
+        glColor3f(0,0,0);
+        glBegin(GL_QUADS);
         {
             int uioffsetX = (8 * uiScale) + (32 * pixelScale);
             int uioffsetY = (32 * pixelScale) + (2 * pixelScale) - (40 * rawScale);
-            GL11.glVertex2i(uioffsetX,                   uioffsetY);
-            GL11.glVertex2i(uioffsetX + (72 * rawScale), uioffsetY);
-            GL11.glVertex2i(uioffsetX + (72 * rawScale), uioffsetY + (40 * rawScale));
-            GL11.glVertex2i(uioffsetX,                   uioffsetY + (40 * rawScale));
+            glVertex2i(uioffsetX,                   uioffsetY);
+            glVertex2i(uioffsetX + (72 * rawScale), uioffsetY);
+            glVertex2i(uioffsetX + (72 * rawScale), uioffsetY + (40 * rawScale));
+            glVertex2i(uioffsetX,                   uioffsetY + (40 * rawScale));
         }
-        GL11.glEnd();
+        glEnd();
 
         /*Draw mouse cursor*/
         DoubleBuffer mouseBufferX = BufferUtils.createDoubleBuffer(1), mouseBufferY = BufferUtils.createDoubleBuffer(1);
-        GLFW.glfwGetCursorPos(window, mouseBufferX, mouseBufferY);
+        glfwGetCursorPos(window, mouseBufferX, mouseBufferY);
         mouseX = mouseBufferX.get();
         mouseY = mouseBufferY.get();
 
@@ -352,16 +352,16 @@ public class Renderer {
 
         //Draw pixel preview
         if(CURSOR_BLINK && (mouseXPixel > 1 && mouseXPixel < 34) && (mouseYPixel >= 0 && mouseYPixel < 32)){
-            GL11.glDisable(GL11.GL_TEXTURE_2D);
-            GL11.glColor3f(0.5f, 0.5f, 0.5f);
-            GL11.glBegin(GL11.GL_QUADS);
+            glDisable(GL_TEXTURE_2D);
+            glColor3f(0.5f, 0.5f, 0.5f);
+            glBegin(GL_QUADS);
             {
-                GL11.glVertex2i(mouseXPixel * pixelScale,              mouseYPixel * pixelScale);
-                GL11.glVertex2i(mouseXPixel * pixelScale + pixelScale, mouseYPixel * pixelScale);
-                GL11.glVertex2i(mouseXPixel * pixelScale + pixelScale, mouseYPixel * pixelScale + pixelScale);
-                GL11.glVertex2i(mouseXPixel * pixelScale,              mouseYPixel * pixelScale + pixelScale);
+                glVertex2i(mouseXPixel * pixelScale,              mouseYPixel * pixelScale);
+                glVertex2i(mouseXPixel * pixelScale + pixelScale, mouseYPixel * pixelScale);
+                glVertex2i(mouseXPixel * pixelScale + pixelScale, mouseYPixel * pixelScale + pixelScale);
+                glVertex2i(mouseXPixel * pixelScale,              mouseYPixel * pixelScale + pixelScale);
             }
-            GL11.glEnd();
+            glEnd();
         }
 
         if(drawToolTip) {
@@ -378,8 +378,8 @@ public class Renderer {
         }
 
 
-        GL11.glColor3f(1,1,1);
-        GL11.glEnable(GL11.GL_TEXTURE_2D);
+        glColor3f(1,1,1);
+        glEnable(GL_TEXTURE_2D);
         //If inside bitmap field
         if((mouseXPixel > 1 && mouseXPixel < 34) && (mouseYPixel >= 0 && mouseYPixel < 32) && toolmode != Tool.color && toolmode != Tool.settings) {
 
@@ -389,15 +389,15 @@ public class Renderer {
             uiCursor.Bind(0);
         }
 
-        GL11.glBegin(GL11.GL_QUADS);
+        glBegin(GL_QUADS);
         {
-            GL11.glTexCoord2i(0,0); GL11.glVertex2d( mouseX,                    mouseY );
-            GL11.glTexCoord2i(1,0); GL11.glVertex2d( mouseX + (2 * pixelScale), mouseY );
-            GL11.glTexCoord2i(1,1); GL11.glVertex2d( mouseX + (2 * pixelScale), mouseY + (2 * pixelScale) );
-            GL11.glTexCoord2i(0,1); GL11.glVertex2d( mouseX,                    mouseY + (2 * pixelScale) );
+            glTexCoord2i(0,0); glVertex2d( mouseX,                    mouseY );
+            glTexCoord2i(1,0); glVertex2d( mouseX + (2 * pixelScale), mouseY );
+            glTexCoord2i(1,1); glVertex2d( mouseX + (2 * pixelScale), mouseY + (2 * pixelScale) );
+            glTexCoord2i(0,1); glVertex2d( mouseX,                    mouseY + (2 * pixelScale) );
         }
-        GL11.glEnd();
-        GL11.glDisable(GL11.GL_TEXTURE_2D);
+        glEnd();
+        glDisable(GL_TEXTURE_2D);
     }
     //Debug info
     public static void drawDebugInf(Tool toolmode, Color[] palette, int activeColor, int activeLayer, boolean safeExit) {
@@ -406,21 +406,21 @@ public class Renderer {
 
         //Window Border
         for (int x = 0; x < 28; x++) {
-            for (int y = 0; y < 16; y++) {
+            for (int y = 0; y < 18; y++) {
                 //checkboard pattern
                 Color UIColor = new Color(127, 127, 127);
-                if ((x > 0 && x < 27) && (y > 0 && y < 15))
+                if ((x > 0 && x < 27) && (y > 0 && y < 17))
                     UIColor = Color.black;
 
-                GL11.glColor3f(UIColor.getRed() / 255f, UIColor.getGreen() / 255f, UIColor.getBlue() / 255f);
-                GL11.glBegin(GL11.GL_QUADS);
+                glColor3f(UIColor.getRed() / 255f, UIColor.getGreen() / 255f, UIColor.getBlue() / 255f);
+                glBegin(GL_QUADS);
                 {
-                    GL11.glVertex2i((2 * pixelScale) + (x * pixelScale) + uiOffset, (y * pixelScale) + uiOffset);
-                    GL11.glVertex2i((2 * pixelScale) + (x * pixelScale) + uiOffset + pixelScale, (y * pixelScale) + uiOffset);
-                    GL11.glVertex2i((2 * pixelScale) + (x * pixelScale) + uiOffset + pixelScale, (y * pixelScale) + uiOffset + pixelScale);
-                    GL11.glVertex2i((2 * pixelScale) + (x * pixelScale) + uiOffset, (y * pixelScale) + uiOffset + pixelScale);
+                    glVertex2i((2 * pixelScale) + (x * pixelScale) + uiOffset, (y * pixelScale) + uiOffset);
+                    glVertex2i((2 * pixelScale) + (x * pixelScale) + uiOffset + pixelScale, (y * pixelScale) + uiOffset);
+                    glVertex2i((2 * pixelScale) + (x * pixelScale) + uiOffset + pixelScale, (y * pixelScale) + uiOffset + pixelScale);
+                    glVertex2i((2 * pixelScale) + (x * pixelScale) + uiOffset, (y * pixelScale) + uiOffset + pixelScale);
                 }
-                GL11.glEnd();
+                glEnd();
             }
         }
 
@@ -440,6 +440,8 @@ public class Renderer {
         drawText("Layer: " + activeLayer, 6 * pixelScale, 13 * pixelScale, 1, false, Color.white, null);
 
         drawText("Exit warn: " + !safeExit, 6 * pixelScale, 15 * pixelScale, 1, false, Color.white, null);
+
+        drawText("Version: " + Application.verNum, 6 * pixelScale, 17 * pixelScale, 1, false, Color.white, null);
     }
 
     //Settings window
@@ -456,15 +458,15 @@ public class Renderer {
                 if ((x > 0 && x < 27) && (y > 0 && y < 15))
                     UIColor = Color.black;
 
-                GL11.glColor3f(UIColor.getRed() / 255f, UIColor.getGreen() / 255f, UIColor.getBlue() / 255f);
-                GL11.glBegin(GL11.GL_QUADS);
+                glColor3f(UIColor.getRed() / 255f, UIColor.getGreen() / 255f, UIColor.getBlue() / 255f);
+                glBegin(GL_QUADS);
                 {
-                    GL11.glVertex2i((2 * pixelScale) + (x * pixelScale) + uiOffset, (y * pixelScale) + uiOffset);
-                    GL11.glVertex2i((2 * pixelScale) + (x * pixelScale) + uiOffset + pixelScale, (y * pixelScale) + uiOffset);
-                    GL11.glVertex2i((2 * pixelScale) + (x * pixelScale) + uiOffset + pixelScale, (y * pixelScale) + uiOffset + pixelScale);
-                    GL11.glVertex2i((2 * pixelScale) + (x * pixelScale) + uiOffset, (y * pixelScale) + uiOffset + pixelScale);
+                    glVertex2i((2 * pixelScale) + (x * pixelScale) + uiOffset, (y * pixelScale) + uiOffset);
+                    glVertex2i((2 * pixelScale) + (x * pixelScale) + uiOffset + pixelScale, (y * pixelScale) + uiOffset);
+                    glVertex2i((2 * pixelScale) + (x * pixelScale) + uiOffset + pixelScale, (y * pixelScale) + uiOffset + pixelScale);
+                    glVertex2i((2 * pixelScale) + (x * pixelScale) + uiOffset, (y * pixelScale) + uiOffset + pixelScale);
                 }
-                GL11.glEnd();
+                glEnd();
             }
         }
 
@@ -484,6 +486,8 @@ public class Renderer {
         int buttonTextCharOffset = 11 - TUtils.clamp(buttonText.length() / 2, 0, 11);
         uiOffset = (2 + buttonTextCharOffset) * pixelScale;
 
+        drawText("Version: " + Application.verNum, 6 * pixelScale, (13 * pixelScale), 1, false, Color.white, null);
+
         drawText(buttonText, uiOffset + (5 * pixelScale), ((winH - 1) * pixelScale), 1, true, Color.black, Color.gray);
 
     }
@@ -500,15 +504,15 @@ public class Renderer {
                 if ((x > 0 && x < 27) && (y > 0 && y < 13))
                     UIColor = Color.black;
 
-                GL11.glColor3f(UIColor.getRed() / 255f, UIColor.getGreen() / 255f, UIColor.getBlue() / 255f);
-                GL11.glBegin(GL11.GL_QUADS);
+                glColor3f(UIColor.getRed() / 255f, UIColor.getGreen() / 255f, UIColor.getBlue() / 255f);
+                glBegin(GL_QUADS);
                 {
-                    GL11.glVertex2i((2 * pixelScale) + (x * pixelScale) + uiOffset,                 (y * pixelScale) + uiOffsetY);
-                    GL11.glVertex2i((2 * pixelScale) + (x * pixelScale) + uiOffset + pixelScale,    (y * pixelScale) + uiOffsetY);
-                    GL11.glVertex2i((2 * pixelScale) + (x * pixelScale) + uiOffset + pixelScale,    (y * pixelScale) + uiOffsetY + pixelScale);
-                    GL11.glVertex2i((2 * pixelScale) + (x * pixelScale) + uiOffset,                 (y * pixelScale) + uiOffsetY + pixelScale);
+                    glVertex2i((2 * pixelScale) + (x * pixelScale) + uiOffset,                 (y * pixelScale) + uiOffsetY);
+                    glVertex2i((2 * pixelScale) + (x * pixelScale) + uiOffset + pixelScale,    (y * pixelScale) + uiOffsetY);
+                    glVertex2i((2 * pixelScale) + (x * pixelScale) + uiOffset + pixelScale,    (y * pixelScale) + uiOffsetY + pixelScale);
+                    glVertex2i((2 * pixelScale) + (x * pixelScale) + uiOffset,                 (y * pixelScale) + uiOffsetY + pixelScale);
                 }
-                GL11.glEnd();
+                glEnd();
             }
         }
 
@@ -540,15 +544,15 @@ public class Renderer {
                 if((x > 0 && x < 27) && (y > 0 && y < 27))
                     UIColor = Color.black;
 
-                GL11.glColor3f(UIColor.getRed() / 255f, UIColor.getGreen() / 255f, UIColor.getBlue() / 255f);
-                GL11.glBegin(GL11.GL_QUADS);
+                glColor3f(UIColor.getRed() / 255f, UIColor.getGreen() / 255f, UIColor.getBlue() / 255f);
+                glBegin(GL_QUADS);
                 {
-                    GL11.glVertex2i((2 * pixelScale) + (x * pixelScale) + uiOffset, (y * pixelScale) + uiOffset);
-                    GL11.glVertex2i((2 * pixelScale) + (x * pixelScale) + uiOffset + pixelScale, (y * pixelScale) + uiOffset);
-                    GL11.glVertex2i((2 * pixelScale) + (x * pixelScale) + uiOffset + pixelScale, (y * pixelScale) + uiOffset + pixelScale);
-                    GL11.glVertex2i((2 * pixelScale) + (x * pixelScale) + uiOffset, (y * pixelScale) + uiOffset + pixelScale);
+                    glVertex2i((2 * pixelScale) + (x * pixelScale) + uiOffset, (y * pixelScale) + uiOffset);
+                    glVertex2i((2 * pixelScale) + (x * pixelScale) + uiOffset + pixelScale, (y * pixelScale) + uiOffset);
+                    glVertex2i((2 * pixelScale) + (x * pixelScale) + uiOffset + pixelScale, (y * pixelScale) + uiOffset + pixelScale);
+                    glVertex2i((2 * pixelScale) + (x * pixelScale) + uiOffset, (y * pixelScale) + uiOffset + pixelScale);
                 }
-                GL11.glEnd();
+                glEnd();
             }
         }
 
@@ -562,15 +566,15 @@ public class Renderer {
 
             //Draw Slider Border
             Color UIColor = new Color(127, 127, 127);
-            GL11.glColor3f(UIColor.getRed() / 255f, UIColor.getGreen() / 255f, UIColor.getBlue() / 255f);
-            GL11.glBegin(GL11.GL_QUADS);
+            glColor3f(UIColor.getRed() / 255f, UIColor.getGreen() / 255f, UIColor.getBlue() / 255f);
+            glBegin(GL_QUADS);
             {
-                GL11.glVertex2i((2 * pixelScale) + uiOffset,                       uiOffset + uiOffsetY);
-                GL11.glVertex2i((2 * pixelScale) + uiOffset + (pixelScale * 24),   uiOffset + uiOffsetY);
-                GL11.glVertex2i((2 * pixelScale) + uiOffset + (pixelScale * 24),   uiOffset + uiOffsetY + (pixelScale * 4));
-                GL11.glVertex2i((2 * pixelScale) + uiOffset,                       uiOffset + uiOffsetY + (pixelScale * 4));
+                glVertex2i((2 * pixelScale) + uiOffset,                       uiOffset + uiOffsetY);
+                glVertex2i((2 * pixelScale) + uiOffset + (pixelScale * 24),   uiOffset + uiOffsetY);
+                glVertex2i((2 * pixelScale) + uiOffset + (pixelScale * 24),   uiOffset + uiOffsetY + (pixelScale * 4));
+                glVertex2i((2 * pixelScale) + uiOffset,                       uiOffset + uiOffsetY + (pixelScale * 4));
             }
-            GL11.glEnd();
+            glEnd();
 
             //Get correct color value for fading bar
             Color editingColor = new Color(0,0,0);
@@ -587,7 +591,7 @@ public class Renderer {
             }
 
             //Draw fading color bar
-            GL11.glBegin(GL11.GL_QUADS);
+            glBegin(GL_QUADS);
 
             int noRed       = TUtils.clamp(Palette[selectedColor].getRed() - editingColor.getRed(), 0, 255);
             int noGreen     = TUtils.clamp(Palette[selectedColor].getGreen() - editingColor.getGreen(), 0, 255);
@@ -597,16 +601,16 @@ public class Renderer {
             int maxGreen    = TUtils.clamp(Palette[selectedColor].getGreen() + editingColor.getGreen(), 0, 255);
             int maxBlue     = TUtils.clamp(Palette[selectedColor].getBlue() + editingColor.getBlue(), 0, 255);
 
-            GL11.glColor3ub((byte)noRed, (byte)noGreen, (byte)noBlue);
+            glColor3ub((byte)noRed, (byte)noGreen, (byte)noBlue);
             {
-                GL11.glVertex2i((2 * pixelScale) + uiOffset + (pixelScale),         (uiOffset + pixelScale) + uiOffsetY);
-                GL11.glColor3ub((byte)maxRed, (byte)maxGreen, (byte)maxBlue);
-                GL11.glVertex2i((2 * pixelScale) + uiOffset + (pixelScale * 23),    (uiOffset + pixelScale) + uiOffsetY);
-                GL11.glVertex2i((2 * pixelScale) + uiOffset + (pixelScale * 23),    (uiOffset + pixelScale) + uiOffsetY + (pixelScale * 2));
-                GL11.glColor3ub((byte)noRed, (byte)noGreen, (byte)noBlue);
-                GL11.glVertex2i((2 * pixelScale) + uiOffset + (pixelScale),         (uiOffset + pixelScale) + uiOffsetY + (pixelScale * 2));
+                glVertex2i((2 * pixelScale) + uiOffset + (pixelScale),         (uiOffset + pixelScale) + uiOffsetY);
+                glColor3ub((byte)maxRed, (byte)maxGreen, (byte)maxBlue);
+                glVertex2i((2 * pixelScale) + uiOffset + (pixelScale * 23),    (uiOffset + pixelScale) + uiOffsetY);
+                glVertex2i((2 * pixelScale) + uiOffset + (pixelScale * 23),    (uiOffset + pixelScale) + uiOffsetY + (pixelScale * 2));
+                glColor3ub((byte)noRed, (byte)noGreen, (byte)noBlue);
+                glVertex2i((2 * pixelScale) + uiOffset + (pixelScale),         (uiOffset + pixelScale) + uiOffsetY + (pixelScale * 2));
             }
-            GL11.glEnd();
+            glEnd();
 
             //Get correct value for slider bar
             float colorValue = 0.0f;
@@ -628,29 +632,29 @@ public class Renderer {
             int colorPositionHexMult = Math.round(colorPosition / 16);
             int colorPositionClamped = colorPositionHexMult * 16;
             UIColor = new Color(64, 64, 64);
-            GL11.glColor3f(UIColor.getRed() / 255f, UIColor.getGreen() / 255f, UIColor.getBlue() / 255f);
-            GL11.glBegin(GL11.GL_QUADS);
+            glColor3f(UIColor.getRed() / 255f, UIColor.getGreen() / 255f, UIColor.getBlue() / 255f);
+            glBegin(GL_QUADS);
             {
-                GL11.glVertex2f((2 * pixelScale) + uiOffset + colorPositionClamped,                   uiOffset + uiOffsetY);
-                GL11.glVertex2f((2 * pixelScale) + uiOffset + colorPositionClamped + (pixelScale),    uiOffset + uiOffsetY);
-                GL11.glVertex2f((2 * pixelScale) + uiOffset + colorPositionClamped + (pixelScale),    uiOffset + uiOffsetY + (pixelScale * 4));
-                GL11.glVertex2f((2 * pixelScale) + uiOffset + colorPositionClamped,                   uiOffset + uiOffsetY + (pixelScale * 4));
+                glVertex2f((2 * pixelScale) + uiOffset + colorPositionClamped,                   uiOffset + uiOffsetY);
+                glVertex2f((2 * pixelScale) + uiOffset + colorPositionClamped + (pixelScale),    uiOffset + uiOffsetY);
+                glVertex2f((2 * pixelScale) + uiOffset + colorPositionClamped + (pixelScale),    uiOffset + uiOffsetY + (pixelScale * 4));
+                glVertex2f((2 * pixelScale) + uiOffset + colorPositionClamped,                   uiOffset + uiOffsetY + (pixelScale * 4));
             }
-            GL11.glEnd();
+            glEnd();
         }
 
         //Color Preview Border
         uiOffsetY = 21 * pixelScale;
         Color UIColor = new Color(127, 127, 127);
-        GL11.glColor3f(UIColor.getRed() / 255f, UIColor.getGreen() / 255f, UIColor.getBlue() / 255f);
-        GL11.glBegin(GL11.GL_QUADS);
+        glColor3f(UIColor.getRed() / 255f, UIColor.getGreen() / 255f, UIColor.getBlue() / 255f);
+        glBegin(GL_QUADS);
         {
-            GL11.glVertex2i((2 * pixelScale) + uiOffset,                        uiOffsetY);
-            GL11.glVertex2i((2 * pixelScale) + uiOffset + (13 * pixelScale),    uiOffsetY);
-            GL11.glVertex2i((2 * pixelScale) + uiOffset + (13 * pixelScale),    uiOffsetY + (7 * pixelScale));
-            GL11.glVertex2i((2 * pixelScale) + uiOffset,                        uiOffsetY + (7 * pixelScale));
+            glVertex2i((2 * pixelScale) + uiOffset,                        uiOffsetY);
+            glVertex2i((2 * pixelScale) + uiOffset + (13 * pixelScale),    uiOffsetY);
+            glVertex2i((2 * pixelScale) + uiOffset + (13 * pixelScale),    uiOffsetY + (7 * pixelScale));
+            glVertex2i((2 * pixelScale) + uiOffset,                        uiOffsetY + (7 * pixelScale));
         }
-        GL11.glEnd();
+        glEnd();
 
         //Hex preview
         uiOffset = 4 * pixelScale;
@@ -670,15 +674,19 @@ public class Renderer {
         //Color Preview Fill
         uiOffset = 5 * pixelScale;
         uiOffsetY = 22 * pixelScale;
-        GL11.glColor3f(UIColor.getRed() / 255f, UIColor.getGreen() / 255f, UIColor.getBlue() / 255f);
-        GL11.glBegin(GL11.GL_QUADS);
+        glColor3f(UIColor.getRed() / 255f, UIColor.getGreen() / 255f, UIColor.getBlue() / 255f);
+        glBegin(GL_QUADS);
         {
-            GL11.glVertex2i((2 * pixelScale) + uiOffset,                        uiOffsetY);
-            GL11.glVertex2i((2 * pixelScale) + uiOffset + (11 * pixelScale),    uiOffsetY);
-            GL11.glVertex2i((2 * pixelScale) + uiOffset + (11 * pixelScale),    uiOffsetY + (5 * pixelScale));
-            GL11.glVertex2i((2 * pixelScale) + uiOffset,                        uiOffsetY + (5 * pixelScale));
+            glVertex2i((2 * pixelScale) + uiOffset,                        uiOffsetY);
+            glVertex2i((2 * pixelScale) + uiOffset + (11 * pixelScale),    uiOffsetY);
+            glVertex2i((2 * pixelScale) + uiOffset + (11 * pixelScale),    uiOffsetY + (5 * pixelScale));
+            glVertex2i((2 * pixelScale) + uiOffset,                        uiOffsetY + (5 * pixelScale));
         }
-        GL11.glEnd();
+        glEnd();
+
+
+        drawText("Save", (20 * pixelScale), (19 * pixelScale), 1, true, Color.black, Color.gray);
+        drawText("Load", (26 * pixelScale), (19 * pixelScale), 1, true, Color.black, Color.gray);
     }
 
     public static void drawFPS(int posX, int posY, int scale, boolean background, Color textColor, Color backgroundColor){
@@ -688,6 +696,15 @@ public class Renderer {
 
     public static void drawText(String text, int posX, int posY, int scale, boolean background, Color textColor, Color backgroundColor){
 
+        String[] splitStrings = text.split("\n");
+        for(int i = 0; i < splitStrings.length; i++){
+            drawTextLine(splitStrings[i], posX, posY + (pixelScale * scale * i), scale, background, textColor, backgroundColor);
+        }
+
+    }
+
+    private static void drawTextLine(String text, int posX, int posY, int scale, boolean background, Color textColor, Color backgroundColor) {
+
         if(text.length() < 1)
             return;
 
@@ -696,15 +713,18 @@ public class Renderer {
         int charSize = pixelScale * scale;
 
         if(background){
-            GL11.glColor3ub((byte)backgroundColor.getRed(), (byte)backgroundColor.getGreen(), (byte)backgroundColor.getBlue());
-            GL11.glBegin(GL11.GL_QUADS);
+
+            final int bgBorder = 2 * rawScale;
+
+            glColor3ub((byte)backgroundColor.getRed(), (byte)backgroundColor.getGreen(), (byte)backgroundColor.getBlue());
+            glBegin(GL_QUADS);
             {
-                GL11.glVertex2f(posX - 2f,                              posY - 2f);
-                GL11.glVertex2f(posX + 2f + (charSize * text.length()), posY - 2f);
-                GL11.glVertex2f(posX + 2f + (charSize * text.length()), posY + 2f + charSize);
-                GL11.glVertex2f(posX - 2f,                              posY + 2f + charSize);
+                glVertex2f(posX,                              posY - bgBorder);
+                glVertex2f(posX + (charSize * text.length()), posY - bgBorder);
+                glVertex2f(posX + (charSize * text.length()), posY + bgBorder + charSize);
+                glVertex2f(posX,                              posY + bgBorder + charSize);
             }
-            GL11.glEnd();
+            glEnd();
         }
 
         for(int charIndex = 0; charIndex < charArray.length; charIndex++){
@@ -717,19 +737,19 @@ public class Renderer {
             float textureOffsetX = indexX / 12f;
             float textureOFfsetY = indexY / 8f;
 
-            GL11.glEnable(GL11.GL_TEXTURE_2D);
-            GL11.glColor3ub((byte)textColor.getRed(), (byte)textColor.getGreen(), (byte)textColor.getBlue());
+            glEnable(GL_TEXTURE_2D);
+            glColor3ub((byte)textColor.getRed(), (byte)textColor.getGreen(), (byte)textColor.getBlue());
             font.Bind(0);
-            GL11.glBegin(GL11.GL_QUADS);
+            glBegin(GL_QUADS);
             {
-                GL11.glTexCoord2f(textureOffsetX,                   textureOFfsetY);                GL11.glVertex2f(posX + (charIndex * charSize),              posY);
-                GL11.glTexCoord2f( (1f / 12f) + textureOffsetX,     textureOFfsetY);                GL11.glVertex2f(posX + (charIndex * charSize) + charSize,   posY);
-                GL11.glTexCoord2f( (1f / 12f) + textureOffsetX,     (1f / 8f) + textureOFfsetY);   GL11.glVertex2f(posX + (charIndex * charSize) + charSize,   posY + charSize);
-                GL11.glTexCoord2f(textureOffsetX,                   (1f / 8f) + textureOFfsetY);   GL11.glVertex2f(posX + (charIndex * charSize),              posY + charSize);
+                glTexCoord2f(textureOffsetX,                   textureOFfsetY);                glVertex2f(posX + (charIndex * charSize),              posY);
+                glTexCoord2f( (1f / 12f) + textureOffsetX,     textureOFfsetY);                glVertex2f(posX + (charIndex * charSize) + charSize,   posY);
+                glTexCoord2f( (1f / 12f) + textureOffsetX,     (1f / 8f) + textureOFfsetY);   glVertex2f(posX + (charIndex * charSize) + charSize,   posY + charSize);
+                glTexCoord2f(textureOffsetX,                   (1f / 8f) + textureOFfsetY);   glVertex2f(posX + (charIndex * charSize),              posY + charSize);
 
             }
-            GL11.glEnd();
-            GL11.glDisable(GL11.GL_TEXTURE_2D);
+            glEnd();
+            glDisable(GL_TEXTURE_2D);
 
         }
     }
@@ -737,22 +757,22 @@ public class Renderer {
 
     //GLFW command pass though
     public static boolean windowShouldClose(){
-        return GLFW.glfwWindowShouldClose(window);
+        return glfwWindowShouldClose(window);
     }
-    public static void pollWindowEvents(){GLFW.glfwPollEvents();}
+    public static void pollWindowEvents(){glfwPollEvents();}
     public static void completeFrame(){
 
-        if( (int)(GLFW.glfwGetTime() * (float)blinkrate) > (int)(lastTime * (float)blinkrate) ){
-            FPS = (int)(1f / (GLFW.glfwGetTime() - lastTime));
+        if( (int)(glfwGetTime() * (float)blinkrate) > (int)(lastTime * (float)blinkrate) ){
+            FPS = (int)(1f / (glfwGetTime() - lastTime));
             CURSOR_BLINK = !CURSOR_BLINK;
         }
 
-        lastTime = GLFW.glfwGetTime();
-        GLFW.glfwSwapBuffers(window);
+        lastTime = glfwGetTime();
+        glfwSwapBuffers(window);
     }
 
     public static void abortWindowClose() {
-        GLFW.glfwSetWindowShouldClose(window, false);
+        glfwSetWindowShouldClose(window, false);
     }
 
     public static void updateLayer(Color[] bitmapColors, int[][][] layeredPixelArray, int i) {

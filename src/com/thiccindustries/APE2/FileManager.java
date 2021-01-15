@@ -1,5 +1,8 @@
 package com.thiccindustries.APE2;
 
+import com.thiccindustries.TLib.APTextureLoader;
+import org.apache.commons.io.IOUtils;
+
 import java.awt.*;
 import java.io.*;
 
@@ -225,7 +228,9 @@ public class FileManager {
     }
 
     //Load a saved file
-    public static APFile loadPixelArrayFromFile(String filePath) {
+    public static APFile loadPixelArrayFromFile(String filePath, boolean internal) {
+
+        System.out.println("Loading file: " + filePath + (internal ? " [internal]" : ""));
         APFile fileLoaded = new APFile();
         fileLoaded.pixelArray = new int[32][32][7];
 
@@ -240,15 +245,20 @@ public class FileManager {
         //Create a local copy of the palette to prevent destructive changes
         System.arraycopy(defaultPalette, 0, fileLoaded.palette, 0, 16);
 
-        File file = new File(filePath);
-        FileInputStream fis;
-        byte[] rawPixelData = new byte[(int) file.length()];
-
-
+        byte[] rawPixelData = new byte[0];
         try {
-            fis = new FileInputStream(file);
-            fis.read(rawPixelData); //No its literally not.
-            fis.close();
+            if(internal){
+                InputStream ios = APTextureLoader.class.getResourceAsStream(filePath);
+                rawPixelData = IOUtils.toByteArray(ios);
+            }else {
+                File file = new File(filePath);
+                FileInputStream fis;
+                rawPixelData = new byte[(int) file.length()];
+
+                fis = new FileInputStream(file);
+                fis.read(rawPixelData); //No its literally not.
+                fis.close();
+            }
         } catch (FileNotFoundException e) {
             System.err.print("File did not exist.");
             return fileLoaded;
@@ -260,8 +270,9 @@ public class FileManager {
             fileLoaded.palette[i / 3] = new Color(rawPixelData[i + 16] & 0xff, rawPixelData[i + 16 + 1] & 0xff, rawPixelData[i + 16 + 2] & 0xff);
         }
 
-        if (rawPixelData.length == 576 || rawPixelData.length == 593) {
-            System.out.println("Loading A.P.E / AP2 file.");
+        System.out.println(rawPixelData.length);
+        if (rawPixelData.length == 576 || rawPixelData.length == 593 || rawPixelData.length == 65536) {
+            System.out.println("File format is: AP2 / APE / APA");
 
             for(int i = 1; i < 7; i++){
                 for (int y = 0; y < 32; y++) {
@@ -288,8 +299,8 @@ public class FileManager {
             }
 
         }
-        if(rawPixelData.length > 576 && rawPixelData.length != 4180 && rawPixelData.length != 593){
-
+        if(rawPixelData.length > 576 && rawPixelData.length != 4180 && rawPixelData.length != 593 && rawPixelData.length != 65536){
+            System.out.println("File format is: A.P.R Compressed.");
             boolean[] activeLayers = new boolean[7];
             int activeLayerTotal = 0;
             //Get active layers
@@ -346,7 +357,7 @@ public class FileManager {
 
         }
         if(rawPixelData.length == 4180){
-            System.out.println("Loading uncompressed A.P.R file.");
+            System.out.println("File format is: A.P.R. Uncompressed.");
 
             int transColorOffset = (592 + (7 * 512));
             //Get transparency colors
@@ -406,11 +417,11 @@ public class FileManager {
             System.err.print("Unknown IO Error.");
         }
 
-        settings.scale      = (int)rawPixelData[0];
-        settings.blinkrate  = (int)rawPixelData[1];
-        settings.sync       = (int)rawPixelData[2] == 1;
+        settings.scale      = rawPixelData[0];
+        settings.blinkrate  = rawPixelData[1];
+        settings.sync       = rawPixelData[2] == 1;
 
-        System.out.println(rawPixelData[0] + " , " + rawPixelData[1] + " , " + rawPixelData[2]);
+        System.out.println("Settings file loaded.");
 
         return settings;
     }
@@ -450,10 +461,91 @@ public class FileManager {
         return flattenedArray;
     }
 
+    public static void initFileSystem(String folderDir) {
+
+        System.out.println("Creating file system at: " + folderDir);
+        File file = new File(folderDir);
+        boolean success = file.mkdir();
+        if (success) {
+            System.out.println("Austin paint folder created successfully.");
+        }else if (file.exists() && file.isDirectory()){
+            System.out.println("Austin paint folder found.");
+        }else{
+            System.err.println("IO error while creating folder!");
+        }
+    }
+
+    //Save a palette file
+    public static void saveFileFromColors(String filePath, Color[] bitmapColors) {
+        byte[] paletteBytes = new byte[48];
+
+        for(int i = 0; i < 16; i++){
+            paletteBytes[i * 3]     = (byte)bitmapColors[i].getRed();
+            paletteBytes[i * 3 + 1] = (byte)bitmapColors[i].getGreen();
+            paletteBytes[i * 3 + 2] = (byte)bitmapColors[i].getBlue();
+        }
+
+        File file = new File(filePath);
+        FileOutputStream fos;
+        try {
+            file.createNewFile();
+            fos = new FileOutputStream(file);
+            fos.write(paletteBytes);
+            fos.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static Color[] loadColorsFromFile(String filePath) {
+        Color[] loadedPalette = new Color[16];
+
+        File file = new File(filePath);
+
+        FileInputStream fis;
+        byte[] rawPixelData = new byte[(int) file.length()];
+
+        try {
+            fis = new FileInputStream(file);
+            fis.read(rawPixelData); //No its literally not.
+            fis.close();
+
+        } catch (FileNotFoundException e) {
+            System.err.print("File did not exist.");
+            return null;
+        } catch (IOException e) {
+            System.err.print("Unknown IO Error.");
+            return null;
+        }
+
+        if(rawPixelData.length != 48){
+            System.err.print("Not a palette file");
+            return null;
+        }
+
+        for(int i = 0; i < 16; i++){
+            loadedPalette[i] = new Color(
+                    (int)rawPixelData[i * 3] & 0xFF,
+                    (int)rawPixelData[i * 3 + 1] & 0xFF,
+                    (int)rawPixelData[i * 3 + 2] & 0xFF);
+        }
+
+        return loadedPalette;
+    }
 
     public static class APFile{
         public int[][][] pixelArray;
         public Color[] palette = new Color[16];
+    }
+
+    public static class FileList{
+        public int[] fileSizes;
+        public String[] fileNames;
+
+        public FileList(int[] fileSizes, String[] fileNames){
+            this.fileNames = fileNames;
+            this.fileSizes = fileSizes;
+        }
     }
 
     public static class Settings{
@@ -462,5 +554,7 @@ public class FileManager {
         public boolean sync = false;
     }
 }
+
+
 
 

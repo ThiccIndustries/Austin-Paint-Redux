@@ -3,21 +3,21 @@ import com.thiccindustries.TLib.*;
 
 import javax.swing.*;
 import javax.swing.filechooser.FileFilter;
-import org.lwjgl.glfw.GLFW;
 import java.awt.*;
 import java.io.File;
 import java.util.LinkedList;
 
-
+import static org.lwjgl.glfw.GLFW.*;
 
 import static com.thiccindustries.APE2.Resources.*;
 
 public class Application {
 
-    public static final String verNum = "1.4.1";
+    public static final String verNum = "1.5.1";
 
     private static int[][][] layeredPixelArray = new int[32][32][7]; //x, y, layer
-    private static boolean[] layerTextureInvalid = new boolean[7];
+    private static final boolean[] layerTextureInvalid = new boolean[7];
+    private static int[][] clipboardBuffer;
 
     private static int activeLayer = 0;
     private static int activeColor = 0;
@@ -36,28 +36,28 @@ public class Application {
 
     private static final LinkedList<UndoEntity> UndoBuffer = new LinkedList<>();
     private static final LinkedList<UndoEntity> RedoBuffer = new LinkedList<>();
-    private static int[][] clipboardBuffer;
+
     private static String hexBuffer = "";
     private static String blinkBuffer = "";
     private static String scaleBuffer = "";
 
     private static Color[] bitmapColors = {
             new Color(0, 0, 0),
-            new Color(63,63,63),
-            new Color(127,127,127),
-            new Color(255,255,255),
-            new Color(0,0,255),
-            new Color(0,0,127),
-            new Color(0,255,0),
-            new Color(0,127,0),
-            new Color(255,0,0),
-            new Color(127,0,0),
-            new Color(0,255,255),
-            new Color(0,127,127),
-            new Color(255,255,0),
-            new Color(127,127,0),
-            new Color(255,0,255),
-            new Color(127,0,127),
+            new Color(63, 63, 63),
+            new Color(127, 127, 127),
+            new Color(255, 255, 255),
+            new Color(0, 0, 255),
+            new Color(0, 0, 127),
+            new Color(0, 255, 0),
+            new Color(0, 127, 0),
+            new Color(255, 0, 0),
+            new Color(127, 0, 0),
+            new Color(0, 255, 255),
+            new Color(0, 127, 127),
+            new Color(255, 255, 0),
+            new Color(127, 127, 0),
+            new Color(255, 0, 255),
+            new Color(127, 0, 127),
     };
 
     private static Tool toolmode = Tool.pencil;
@@ -65,17 +65,18 @@ public class Application {
     public static void main(String[] args){
 
         //Attempt to load settings
-        FileManager.Settings settings = FileManager.readSettingsFile(System.getProperty("user.home") + "/settings.apr");
+        FileManager.Settings settings = FileManager.readSettingsFile(System.getProperty("user.home") + "/Austin-Paint-Redux/settings.apr");
 
         int initialBlinkRate;
 
+        FileManager.initFileSystem(System.getProperty("user.home") + "/Austin-Paint-Redux");
         //No settings file
         if(settings == null){
             windowScale = 1;
             initialBlinkRate = 4;
             vsync = false;
 
-            FileManager.writeSettingsFile(System.getProperty("user.home") + "/settings.apr", windowScale, initialBlinkRate, vsync);
+            FileManager.writeSettingsFile(System.getProperty("user.home") + "/Austin-Paint-Redux/settings.apr", windowScale, initialBlinkRate, vsync);
         }else{
             //Settings file loaded
             windowScale         = settings.scale;
@@ -94,8 +95,13 @@ public class Application {
 
 
         if(args.length > 0) {
-            System.out.println(args[0]);
-            FileManager.APFile apfile = FileManager.loadPixelArrayFromFile(args[0]);
+            System.out.println("Loading file: " + args[0]);
+            FileManager.APFile apfile = FileManager.loadPixelArrayFromFile(args[0], false);
+            layeredPixelArray = apfile.pixelArray;
+            bitmapColors = apfile.palette;
+        }else{
+            System.out.println("No Args[0] file, loading demo.");
+            FileManager.APFile apfile = FileManager.loadPixelArrayFromFile("/res/demo.ap2", true);
             layeredPixelArray = apfile.pixelArray;
             bitmapColors = apfile.palette;
         }
@@ -111,6 +117,7 @@ public class Application {
             layerTextureInvalid[i] = true;
         }
 
+        //Main loop
         while(!Renderer.windowShouldClose()){
 
             //Update input
@@ -129,8 +136,8 @@ public class Application {
             }
 
             //Begin rendering
-            Renderer.drawBitmapLayers(layeredPixelArray, bitmapColors, drawStacked, activeLayer);
-            Renderer.drawBitmapLayersSplit(layeredPixelArray, bitmapColors);
+            Renderer.drawBitmapLayers(drawStacked, activeLayer);
+            Renderer.drawBitmapLayerPreviews();
             Renderer.drawSelection(curSelection);
 
             //Draw palette editing screen, this also occurs if the tool is txt_color
@@ -140,6 +147,9 @@ public class Application {
             if(toolmode == Tool.save_warn)
                 Renderer.drawDialog(new String[]{"Warning: unsaved changes", "press close again", "to exit."}, "Cancel");
 
+            if(toolmode == Tool.new_warn)
+                Renderer.drawDialog(new String[]{"Warning: unsaved changes", "press New Image again", "to confirm."}, "Cancel");
+
             if(toolmode.getDisplayTool() == Tool.settings)
                 Renderer.drawSettings(windowScale, vsync, "Save");
 
@@ -148,7 +158,6 @@ public class Application {
                 Renderer.drawDebugInf(toolmode, bitmapColors, activeColor, activeLayer, safeExit);
 
             Renderer.drawUI(toolmode, bitmapColors, activeColor, activeLayer, Renderer.mouseXPixel < 2);
-
             Renderer.drawText("Fps: ",(int)(34.5 * Renderer.pixelScale), 32 * Renderer.pixelScale - Renderer.uiScale, 1, false, Color.white, null);
             Renderer.drawFPS((int)(34.5 * Renderer.pixelScale), 33 * Renderer.pixelScale, 1, false, Color.white, null);
 
@@ -164,24 +173,24 @@ public class Application {
             }
         }
 
-        GLFW.glfwTerminate();
+        glfwTerminate();
         System.exit(0);
     }
 
     private static void Actions() {
         //Prevent any actions until file dialog is closed
-        if(toolmode == Tool.lock_save || toolmode == Tool.lock_export || toolmode == Tool.lock_open)
+        if(toolmode.toString().contains("lock"))
             return;
 
         //Require another mouse click before acting as a pencil (Pencil_wait)
-        if(toolmode == Tool.pencil_wait && Mouse.GetButtonDown(GLFW.GLFW_MOUSE_BUTTON_1)){
+        if(toolmode == Tool.pencil_wait && Mouse.GetButtonDown(GLFW_MOUSE_BUTTON_1)){
             toolmode = Tool.pencil;
         }
 
         //Toolbar
             if(Renderer.mouseXPixel < 2){
             //Select new tool
-            if(Mouse.GetButtonDown(GLFW.GLFW_MOUSE_BUTTON_1)){
+            if(Mouse.GetButtonDown(GLFW_MOUSE_BUTTON_1)){
                 int selectedToolOrdinal = (int)Renderer.mouseY / (8 * Renderer.uiScale);
 
                 if(selectedToolOrdinal >= Tool.values().length)
@@ -190,6 +199,11 @@ public class Application {
                 if(!Tool.values()[selectedToolOrdinal].display())
                     selectedToolOrdinal = toolmode.ordinal();
 
+
+                if(toolmode == Tool.new_warn && Tool.values()[selectedToolOrdinal] == Tool.create){
+                    safeExit = true;
+                }
+
                 toolmode = Tool.values()[selectedToolOrdinal];
             }
         }
@@ -197,7 +211,7 @@ public class Application {
         //Color selector
         if((Renderer.mouseXPixel > 2 && Renderer.mouseXPixel < 34) && (Renderer.mouseYPixel > 31)){
             //Select new color
-            if(Mouse.GetButtonDown(GLFW.GLFW_MOUSE_BUTTON_1)){
+            if(Mouse.GetButtonDown(GLFW_MOUSE_BUTTON_1)){
                 activeColor = (Renderer.mouseXPixel - 2) / 2;
             }
         }
@@ -205,7 +219,7 @@ public class Application {
         //Layer previews
         if((Renderer.mouseXPixel > 33) && (Renderer.mouseYPixel < 31)){
             //Select layer
-            if(Mouse.GetButtonDown(GLFW.GLFW_MOUSE_BUTTON_1)){
+            if(Mouse.GetButtonDown(GLFW_MOUSE_BUTTON_1)){
                 activeLayer = 6 - (int)Renderer.mouseY / (18 * Renderer.uiScale);
             }
         }
@@ -223,8 +237,8 @@ public class Application {
                     }
                 }
 
-                for (int x = curSelection.x1; x < curSelection.x2; x++) {
-                    for (int y = curSelection.y1; y < curSelection.y2; y++) {
+                for (int x = curSelection.x1; x <= curSelection.x2; x++) {
+                    for (int y = curSelection.y1; y <= curSelection.y2; y++) {
                         clipboardBuffer[x][y] = flippedPixelArray[x - curSelection.x1][y - curSelection.y1];
                     }
                 }
@@ -237,7 +251,7 @@ public class Application {
                 RedoBuffer.clear();
 
                 for (int x = curSelection.x1; x <= curSelection.x2; x++) {
-                    for (int y = curSelection.y1; y < curSelection.y2; y++) {
+                    for (int y = curSelection.y1; y <= curSelection.y2; y++) {
                         ue.AddPixel(x, y, activeLayer, layeredPixelArray[x][y][activeLayer]);
                         layeredPixelArray[x][y][activeLayer] = -1;
                     }
@@ -270,8 +284,8 @@ public class Application {
                     }
                 }
 
-                for (int x = curSelection.x1; x < curSelection.x2; x++) {
-                    for (int y = curSelection.y1; y < curSelection.y2; y++) {
+                for (int x = curSelection.x1; x <= curSelection.x2; x++) {
+                    for (int y = curSelection.y1; y <= curSelection.y2; y++) {
                         clipboardBuffer[x][y] = flippedPixelArray[x - curSelection.x1][y - curSelection.y1];
                     }
                 }
@@ -282,7 +296,7 @@ public class Application {
                 safeExit = false;
                 RedoBuffer.clear();
                 for (int x = curSelection.x1; x <= curSelection.x2; x++) {
-                    for (int y = curSelection.y1; y < curSelection.y2; y++) {
+                    for (int y = curSelection.y1; y <= curSelection.y2; y++) {
                         ue.AddPixel(x, y, activeLayer, layeredPixelArray[x][y][activeLayer]);
                         layeredPixelArray[x][y][activeLayer] = -1;
                     }
@@ -306,18 +320,18 @@ public class Application {
         //bitmap field
         if((Renderer.mouseXPixel > 1 && Renderer.mouseXPixel < 34) && (Renderer.mouseYPixel >= 0 && Renderer.mouseYPixel < 32)) {
 
-                if(Mouse.GetButton(GLFW.GLFW_MOUSE_BUTTON_2)){
+                if(Mouse.GetButton(GLFW_MOUSE_BUTTON_2)){
                     curSelection.ResetSelection();
                 }
 
                 //Pencil
                 if(toolmode == Tool.pencil){
-                    if(Mouse.GetButtonDown(GLFW.GLFW_MOUSE_BUTTON_1)){
+                    if(Mouse.GetButtonDown(GLFW_MOUSE_BUTTON_1)){
                         UndoEntity newStroke = new UndoEntity();
                         UndoBuffer.addFirst(newStroke);
                         RedoBuffer.clear();
                     }
-                    if(Mouse.GetButton(GLFW.GLFW_MOUSE_BUTTON_1)) {
+                    if(Mouse.GetButton(GLFW_MOUSE_BUTTON_1)) {
                         UndoBuffer.getFirst().AddPixel(Renderer.mouseXPixel - 2, Renderer.mouseYPixel, activeLayer, layeredPixelArray[Renderer.mouseXPixel - 2][Renderer.mouseYPixel][activeLayer]);
                         safeExit = false;
 
@@ -329,12 +343,12 @@ public class Application {
 
                 //Erase
                 if(toolmode == Tool.erase){
-                    if(Mouse.GetButtonDown(GLFW.GLFW_MOUSE_BUTTON_1)){
+                    if(Mouse.GetButtonDown(GLFW_MOUSE_BUTTON_1)){
                         UndoEntity newStroke = new UndoEntity();
                        UndoBuffer.addFirst(newStroke);
                         RedoBuffer.clear();
                     }
-                    if(Mouse.GetButton(GLFW.GLFW_MOUSE_BUTTON_1)) {
+                    if(Mouse.GetButton(GLFW_MOUSE_BUTTON_1)) {
                         UndoBuffer.getFirst().AddPixel(Renderer.mouseXPixel - 2, Renderer.mouseYPixel, activeLayer, layeredPixelArray[Renderer.mouseXPixel - 2][Renderer.mouseYPixel][activeLayer]);
                         safeExit = false;
                         layeredPixelArray[Renderer.mouseXPixel - 2][Renderer.mouseYPixel][activeLayer] = -1;
@@ -345,7 +359,7 @@ public class Application {
 
                 //Fill
                 if(toolmode == Tool.fill){
-                    if(Mouse.GetButtonDown(GLFW.GLFW_MOUSE_BUTTON_1)) {
+                    if(Mouse.GetButtonDown(GLFW_MOUSE_BUTTON_1)) {
                         safeExit = false;
 
                         //No finished selection
@@ -387,7 +401,7 @@ public class Application {
 
                 //Select
                 if(toolmode == Tool.select) {
-                    if(Mouse.GetButtonDown(GLFW.GLFW_MOUSE_BUTTON_1)) {
+                    if(Mouse.GetButtonDown(GLFW_MOUSE_BUTTON_1)) {
 
                         if (curSelection.selectionStage == 3) { //Finish Selection and reset
                             curSelection.ResetSelection();
@@ -401,9 +415,11 @@ public class Application {
                         }
                     }
 
-                    if(Mouse.GetButtonUp(GLFW.GLFW_MOUSE_BUTTON_1) && curSelection.selectionStage == 1){
-                        curSelection.x2 = Renderer.mouseXPixel - 2;
-                        curSelection.y2 = Renderer.mouseYPixel;
+                    if(!Mouse.GetButton(GLFW_MOUSE_BUTTON_1) && curSelection.selectionStage == 1){
+                        curSelection.x2 = TUtils.clamp(Renderer.mouseXPixel - 2, 0, 31);
+                        curSelection.y2 = TUtils.clamp(Renderer.mouseYPixel, 0, 31);
+
+
                         curSelection.selectionStage = 2;
                         curSelection.CompleteSelection();
                     }
@@ -411,12 +427,12 @@ public class Application {
 
                 //Move select
                 if(toolmode == Tool.move_sel) {
-                    if(Mouse.GetButtonDown(GLFW.GLFW_MOUSE_BUTTON_1)){
+                    if(Mouse.GetButtonDown(GLFW_MOUSE_BUTTON_1)){
                         lastClickX = Renderer.mouseXPixel - 2;
                         lastClickY = Renderer.mouseYPixel;
                     }
 
-                    if(Mouse.GetButton(GLFW.GLFW_MOUSE_BUTTON_1)){
+                    if(Mouse.GetButton(GLFW_MOUSE_BUTTON_1)){
                         if(lastClickX != (Renderer.mouseXPixel - 2)){
 
                             if(!(lastClickX == curSelection.x1 || lastClickX == curSelection.x2) && !(lastClickY == curSelection.y1 || lastClickY == curSelection.y2)) {
@@ -470,7 +486,7 @@ public class Application {
 
                 //Move pixels
                 if(toolmode == Tool.move_pixel){
-                    if(Mouse.GetButtonDown(GLFW.GLFW_MOUSE_BUTTON_1)){
+                    if(Mouse.GetButtonDown(GLFW_MOUSE_BUTTON_1)){
                         lastClickX = Renderer.mouseXPixel - 2;
                         lastClickY = Renderer.mouseYPixel;
                         UndoEntity ue = new UndoEntity();
@@ -478,7 +494,7 @@ public class Application {
                         RedoBuffer.clear();
                     }
 
-                    if(Mouse.GetButton(GLFW.GLFW_MOUSE_BUTTON_1)){
+                    if(Mouse.GetButton(GLFW_MOUSE_BUTTON_1)){
                         safeExit = false;
 
                         if(lastClickX != (Renderer.mouseXPixel - 2)){
@@ -626,13 +642,21 @@ public class Application {
 
         //Palette Changer
         if(toolmode == Tool.color){
+
+            //Alternate Tool Modes
             if((Renderer.mouseXPixel >= 9 && Renderer.mouseXPixel < 16) && Renderer.mouseYPixel == 19){
                 //Text editing
                 hexBuffer = "";
                 toolmode = Tool.txt_color;
             }
 
-            if(Mouse.GetButton(GLFW.GLFW_MOUSE_BUTTON_1)){
+            if((Renderer.mouseXPixel >= 20 && Renderer.mouseXPixel <= 24) && Renderer.mouseYPixel == 19 && Mouse.GetButtonDown(GLFW_MOUSE_BUTTON_1))
+                toolmode = Tool.save_color;
+
+            if((Renderer.mouseXPixel >= 26 && Renderer.mouseXPixel <= 30) && Renderer.mouseYPixel == 19 && Mouse.GetButtonDown(GLFW_MOUSE_BUTTON_1))
+                toolmode = Tool.load_color;
+
+            if(Mouse.GetButton(GLFW_MOUSE_BUTTON_1)){
                 if (Renderer.mouseXPixel > 6 && Renderer.mouseXPixel < 29) {
                     //Red
                     if (Renderer.mouseYPixel > 3 && Renderer.mouseYPixel < 8) {
@@ -696,11 +720,11 @@ public class Application {
 
                     @Override
                     public String getDescription() {
-                        return "Austin Paint 2 Files";
+                        return "Austin Paint Redux File";
                     }
                 });
 
-                fileChooser.setCurrentDirectory(new File(System.getProperty("user.home")));
+                fileChooser.setCurrentDirectory(new File(System.getProperty("user.home") + "/Austin-Paint-Redux"));
                 fileChooser.setSelectedFile(new File("untitled.ap2"));
                 int result = fileChooser.showSaveDialog(null);
 
@@ -744,7 +768,7 @@ public class Application {
                         return "Bitmap Image Files";
                     }
                 });
-                fileChooser.setCurrentDirectory(new File(System.getProperty("user.home")));
+                fileChooser.setCurrentDirectory(new File(System.getProperty("user.home") + "/Austin-Paint-Redux"));
                 fileChooser.setSelectedFile(new File("untitled.bmp"));
                 int result = fileChooser.showSaveDialog(null);
 
@@ -777,20 +801,20 @@ public class Application {
                 fileChooser.setFileFilter(new FileFilter() {
                     @Override
                     public boolean accept(File f) {
-                        return f.getName().endsWith(".ap2") || f.isDirectory();
+                        return f.getName().endsWith(".ap2") || f.getName().endsWith(".sav") || f.isDirectory();
                     }
 
                     @Override
                     public String getDescription() {
-                        return "Austin Paint 2 Files";
+                        return "Austin Paint Series File";
                     }
                 });
 
-                fileChooser.setCurrentDirectory(new File(System.getProperty("user.home")));
+                fileChooser.setCurrentDirectory(new File(System.getProperty("user.home") + "/Austin-Paint-Redux"));
                 int result = fileChooser.showOpenDialog(null);
 
                 if(result == JFileChooser.APPROVE_OPTION){
-                    FileManager.APFile apfile = FileManager.loadPixelArrayFromFile(fileChooser.getSelectedFile().getPath());
+                    FileManager.APFile apfile = FileManager.loadPixelArrayFromFile(fileChooser.getSelectedFile().getPath(), false);
                     layeredPixelArray = apfile.pixelArray;
                     bitmapColors = apfile.palette;
 
@@ -800,6 +824,53 @@ public class Application {
                 }
                 toolmode = Tool.pencil;
             });
+        }
+
+        //Create new file
+        if(toolmode == Tool.create){
+            if(!safeExit) {
+                toolmode = Tool.new_warn;
+            }
+            else{
+                //Reset palette
+                bitmapColors = new Color[]{
+                        new Color(0, 0, 0),
+                        new Color(63,63,63),
+                        new Color(127,127,127),
+                        new Color(255,255,255),
+                        new Color(0,0,255),
+                        new Color(0,0,127),
+                        new Color(0,255,0),
+                        new Color(0,127,0),
+                        new Color(255,0,0),
+                        new Color(127,0,0),
+                        new Color(0,255,255),
+                        new Color(0,127,127),
+                        new Color(255,255,0),
+                        new Color(127,127,0),
+                        new Color(255,0,255),
+                        new Color(127,0,127),
+                };
+
+                //Init array to -1
+                for(int layer = 0; layer < 7; layer++) {
+                    for (int y = 0; y < 32; y++) {
+                        for (int x = 0; x < 32; x++) {
+                            layeredPixelArray[x][y][layer] = -1;
+                        }
+                    }
+
+                    layerTextureInvalid[layer] = true;
+                }
+                toolmode = Tool.pencil;
+            }
+        }
+
+        //Save warning box (Internal)
+        if(toolmode == Tool.new_warn){
+            //Clicked dismiss button
+            if((Renderer.mouseXPixel >= 15 && Renderer.mouseXPixel <= 20) && Renderer.mouseYPixel == 21 && Mouse.GetButtonDown(GLFW_MOUSE_BUTTON_1))
+                toolmode = Tool.pencil_wait;
         }
 
         //Color Entry Tool (Internal)
@@ -828,6 +899,92 @@ public class Application {
                 toolmode = Tool.color;
 
             }
+        }
+
+        //Save palette
+        if(toolmode == Tool.save_color){
+            toolmode = Tool.lock_color;
+            try {
+                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+            }
+            catch (Throwable ignored) {
+            }
+
+            EventQueue.invokeLater(() -> {
+                JFileChooser fileChooser = new JFileChooser();
+
+                //Prevent dumbness
+                fileChooser.setFileFilter(new FileFilter() {
+                    @Override
+                    public boolean accept(File f) {
+                        return f.getName().endsWith(".apr") || f.isDirectory();
+                    }
+
+                    @Override
+                    public String getDescription() {
+                        return "Austin Paint Redux File";
+                    }
+                });
+
+                fileChooser.setCurrentDirectory(new File(System.getProperty("user.home") + "/Austin-Paint-Redux"));
+                fileChooser.setSelectedFile(new File("untitled.apr"));
+                int result = fileChooser.showSaveDialog(null);
+
+                try {
+                    String path = fileChooser.getSelectedFile().getPath();
+                    if (!path.endsWith(".apr")) {
+                        path += ".apr";
+                    }
+
+                    if (result == JFileChooser.APPROVE_OPTION) {
+                        FileManager.saveFileFromColors(path, bitmapColors);
+                        safeExit = true;
+                    }
+                }catch(Exception ignored){}
+                toolmode = Tool.color;
+            });
+        }
+
+        if(toolmode == Tool.load_color){
+            toolmode = Tool.lock_color;
+            try {
+                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+            }
+            catch (Throwable ignored) {
+            }
+
+            EventQueue.invokeLater(() -> {
+                JFileChooser fileChooser = new JFileChooser();
+
+                //Prevent dumbness
+                fileChooser.setFileFilter(new FileFilter() {
+                    @Override
+                    public boolean accept(File f) {
+                        return f.getName().endsWith(".apr") || f.isDirectory();
+                    }
+
+                    @Override
+                    public String getDescription() {
+                        return "Austin Paint Redux Files";
+                    }
+                });
+
+                fileChooser.setCurrentDirectory(new File(System.getProperty("user.home") + "/Austin-Paint-Redux"));
+                int result = fileChooser.showOpenDialog(null);
+
+                if(result == JFileChooser.APPROVE_OPTION){
+                    Color[] newColors = FileManager.loadColorsFromFile(fileChooser.getSelectedFile().getPath());
+
+                    if(newColors != null) {
+                        bitmapColors = newColors;
+
+                        for (int i = 0; i < 7; i++) {
+                            layerTextureInvalid[i] = true;
+                        }
+                    }
+                }
+                toolmode = Tool.color;
+            });
         }
 
         //Scale Entry Tool (Internal)
@@ -871,16 +1028,16 @@ public class Application {
         //Save warning box (Internal)
         if(toolmode == Tool.save_warn){
             //Clicked dismiss button
-            if((Renderer.mouseXPixel >= 15 && Renderer.mouseXPixel <= 20) && Renderer.mouseYPixel == 21 && Mouse.GetButtonDown(GLFW.GLFW_MOUSE_BUTTON_1))
+            if((Renderer.mouseXPixel >= 15 && Renderer.mouseXPixel <= 20) && Renderer.mouseYPixel == 21 && Mouse.GetButtonDown(GLFW_MOUSE_BUTTON_1))
                 toolmode = Tool.pencil_wait;
         }
 
         //Settings window
         if(toolmode == Tool.settings){
             //Clicked vsync button
-            if((Renderer.mouseXPixel >= 13 && Renderer.mouseXPixel <= 15) && Renderer.mouseYPixel == 11 && Mouse.GetButtonDown(GLFW.GLFW_MOUSE_BUTTON_1)) {
+            if((Renderer.mouseXPixel >= 13 && Renderer.mouseXPixel <= 15) && Renderer.mouseYPixel == 11 && Mouse.GetButtonDown(GLFW_MOUSE_BUTTON_1)) {
                 vsync = !vsync;
-                GLFW.glfwSwapInterval(vsync ? 1 : 0);
+                glfwSwapInterval(vsync ? 1 : 0);
             }
 
             if((Renderer.mouseXPixel >= 23 && Renderer.mouseXPixel < 23 + ((windowScale / 10) + 1)) && Renderer.mouseYPixel == 7){
@@ -895,31 +1052,31 @@ public class Application {
                 toolmode = Tool.txt_blink;
             }
             //Clicked dismiss button
-            if((Renderer.mouseXPixel >= 15 && Renderer.mouseXPixel <= 21) && Renderer.mouseYPixel == 15 && Mouse.GetButtonDown(GLFW.GLFW_MOUSE_BUTTON_1)){
-                FileManager.writeSettingsFile(System.getProperty("user.home") + "/settings.apr", windowScale, Renderer.blinkrate, vsync);
+            if((Renderer.mouseXPixel >= 15 && Renderer.mouseXPixel <= 21) && Renderer.mouseYPixel == 15 && Mouse.GetButtonDown(GLFW_MOUSE_BUTTON_1)){
+                FileManager.writeSettingsFile(System.getProperty("user.home") + "/Austin-Paint-Redux/settings.apr", windowScale, Renderer.blinkrate, vsync);
                 toolmode = Tool.pencil_wait;
             }
         }
 
 
         //Change color index right
-        if(Keyboard.GetKeyDown(GLFW.GLFW_KEY_TAB) && !Keyboard.GetKey(GLFW.GLFW_KEY_LEFT_SHIFT)){
+        if(Keyboard.GetKeyDown(GLFW_KEY_TAB) && !Keyboard.GetKey(GLFW_KEY_LEFT_SHIFT)){
             activeColor++;
             if(activeColor > 15)
                 activeColor = 0;
         }
 
         //Change color index left
-        if(Keyboard.GetKeyDown(GLFW.GLFW_KEY_TAB) && Keyboard.GetKey(GLFW.GLFW_KEY_LEFT_SHIFT)){
+        if(Keyboard.GetKeyDown(GLFW_KEY_TAB) && Keyboard.GetKey(GLFW_KEY_LEFT_SHIFT)){
             activeColor--;
             if(activeColor < 0)
                 activeColor = 15;
         }
 
         //CTRL commands
-        if(Keyboard.GetKey(GLFW.GLFW_KEY_LEFT_CONTROL)){
+        if(Keyboard.GetKey(GLFW_KEY_LEFT_CONTROL)){
             //undo
-            if(Keyboard.GetKeyDown(GLFW.GLFW_KEY_Z) && UndoBuffer.size() > 0){
+            if(Keyboard.GetKeyDown(GLFW_KEY_Z) && UndoBuffer.size() > 0){
                 safeExit = false;
 
                 UndoEntity ue = UndoBuffer.getFirst();
@@ -941,7 +1098,7 @@ public class Application {
             }
 
             //redo
-            if(Keyboard.GetKeyDown(GLFW.GLFW_KEY_Y) && RedoBuffer.size() > 0){
+            if(Keyboard.GetKeyDown(GLFW_KEY_Y) && RedoBuffer.size() > 0){
                 safeExit = false;
 
                 UndoEntity re = RedoBuffer.getFirst();
@@ -966,7 +1123,7 @@ public class Application {
             }
 
             //cut
-            if(Keyboard.GetKeyDown(GLFW.GLFW_KEY_X) && curSelection.selectionStage == 3){
+            if(Keyboard.GetKeyDown(GLFW_KEY_X) && curSelection.selectionStage == 3){
                 safeExit = false;
 
                 clipboardBuffer = new int[32][32];
@@ -995,7 +1152,7 @@ public class Application {
             }
 
             //copy
-            if(Keyboard.GetKeyDown(GLFW.GLFW_KEY_C) && curSelection.selectionStage == 3){
+            if(Keyboard.GetKeyDown(GLFW_KEY_C) && curSelection.selectionStage == 3){
                 clipboardBuffer = new int[32][32];
                 for (int y = 0; y < 32; y++) {
                     for (int x = 0; x < 32; x++) {
@@ -1015,7 +1172,7 @@ public class Application {
             }
 
             //paste
-            if(Keyboard.GetKeyDown(GLFW.GLFW_KEY_V) && clipboardBuffer != null){
+            if(Keyboard.GetKeyDown(GLFW_KEY_V) && clipboardBuffer != null){
                 safeExit = false;
 
                 UndoEntity ue = new UndoEntity();
@@ -1035,20 +1192,20 @@ public class Application {
             }
 
             //Save
-            if(Keyboard.GetKeyDown(GLFW.GLFW_KEY_S)){
+            if(Keyboard.GetKeyDown(GLFW_KEY_S)){
                 toolmode = Tool.save;
             }
         }
 
         //ALT commands
-        if(Keyboard.GetKey(GLFW.GLFW_KEY_LEFT_ALT)){
-            if(Keyboard.GetKeyDown(GLFW.GLFW_KEY_S)){
+        if(Keyboard.GetKey(GLFW_KEY_LEFT_ALT)){
+            if(Keyboard.GetKeyDown(GLFW_KEY_S)){
                 drawStacked = !drawStacked;
             }
         }
 
         //Enable debug
-        if(Keyboard.GetKeyDown(GLFW.GLFW_KEY_F3)){
+        if(Keyboard.GetKeyDown(GLFW_KEY_F3)){
             drawDebug = !drawDebug;
         }
     }
